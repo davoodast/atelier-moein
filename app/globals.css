@@ -1,0 +1,51 @@
+@font-face {
+  font-family: 'A-Iranian-Sans';
+  src: url('/fonts/Iranian Sans.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  direction: rtl;
+  font-family: 'A-Iranian-Sans', system-ui, sans-serif;
+}
+
+body {
+  font-family: 'A-Iranian-Sans', system-ui, sans-serif;
+  background-color: white;
+  color: #111827;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0a0a0a;
+  color: #f9fafb;
+}

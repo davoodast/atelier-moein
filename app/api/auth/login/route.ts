@@ -1,0 +1,56 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { signJWT } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
+
+export async function POST(request: Request) {
+  try {
+    const { username, password } = await request.json();
+    if (!username || !password) {
+      return NextResponse.json({ error: 'نام کاربری و رمز عبور الزامی است' }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { username },
+      include: { role: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'نام کاربری یا رمز عبور اشتباه است' }, { status: 401 });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return NextResponse.json({ error: 'نام کاربری یا رمز عبور اشتباه است' }, { status: 401 });
+    }
+
+    const roleName = user.role?.name || 'employee';
+    const token = await signJWT({
+      id: user.id,
+      username: user.username,
+      role: roleName,
+    });
+
+    const responseData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      role: roleName,
+      bank_account: user.bank_account,
+    };
+
+    const response = NextResponse.json({ user: responseData });
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    return response;
+  } catch {
+    return NextResponse.json({ error: 'خطای سرور' }, { status: 500 });
+  }
+}

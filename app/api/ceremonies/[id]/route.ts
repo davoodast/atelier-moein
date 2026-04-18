@@ -1,0 +1,71 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/auth';
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getAuthUser(request);
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const ceremony = await prisma.ceremony.findUnique({
+    where: { id: parseInt(id) },
+    include: {
+      payments: true,
+      tasks: {
+        include: { employee: { include: { user: true } } },
+      },
+    },
+  });
+
+  if (!ceremony) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const result = {
+    ...ceremony,
+    tasks: ceremony.tasks.map((t) => ({
+      id: t.id,
+      employee_id: t.employee_id,
+      ceremony_id: t.ceremony_id,
+      role_description: t.role_description,
+      attendance_hours: t.attendance_hours,
+      username: t.employee?.user?.username || '',
+      position: t.employee?.position || '',
+    })),
+  };
+
+  return NextResponse.json(result);
+}
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getAuthUser(request);
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const data = await request.json();
+
+  const ceremony = await prisma.ceremony.update({
+    where: { id: parseInt(id) },
+    data: {
+      type: data.type,
+      groom_name: data.groom_name || null,
+      bride_name: data.bride_name || null,
+      date_jalali: data.date_jalali || null,
+      time: data.time || null,
+      address: data.address || null,
+      total_amount: data.total_amount ? parseFloat(data.total_amount) : null,
+      advance_paid: data.advance_paid ? parseFloat(data.advance_paid) : null,
+      status: data.status || 'booked',
+      plan_details: data.plan_details || data.notes || null,
+    },
+  });
+
+  return NextResponse.json(ceremony);
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getAuthUser(request);
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  await prisma.ceremony.delete({ where: { id: parseInt(id) } });
+  return NextResponse.json({ message: 'Deleted' });
+}
