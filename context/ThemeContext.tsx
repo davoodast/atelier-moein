@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
+import { useTheme as useNextTheme } from 'next-themes';
 
 interface ThemeContextType {
   isDark: boolean;
@@ -10,39 +11,15 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// Thin wrapper kept for backward-compat with existing components that call useTheme()
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  // Default: dark. Will sync from localStorage after mount.
-  const [isDark, setIsDark] = useState(true);
-
-  useEffect(() => {
-    // Read saved preference from localStorage after mount (client-only)
-    const saved = localStorage.getItem('theme');
-    const prefersDark = saved ? saved === 'dark' : true;
-    setIsDark(prefersDark);
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (isDark) {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => setIsDark((d) => !d);
-
-  return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  // next-themes ThemeProvider is already in layout.tsx; this just passes children through
+  return <>{children}</>;
 };
 
-export const useTheme = () => {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
+export const useTheme = (): ThemeContextType => {
+  const { resolvedTheme, setTheme } = useNextTheme();
+  const isDark = resolvedTheme === 'dark';
+  const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
+  return { isDark, toggleTheme };
 };

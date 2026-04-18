@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { ThemeProvider } from '@/context/ThemeContext';
+import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/context/AuthContext';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'آتلیه معین',
@@ -28,8 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body>
-        <ThemeProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>{children}</AuthProvider>
+          <Toaster richColors position="top-center" dir="rtl" />
         </ThemeProvider>
       </body>
     </html>

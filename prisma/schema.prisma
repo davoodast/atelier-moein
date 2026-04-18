@@ -33,17 +33,21 @@ model User {
 }
 
 model Employee {
-  id         Int            @id @default(autoincrement())
-  user_id    Int            @unique
-  position   String?
-  start_date String?
-  salary     Float?
-  status     String         @default("active")
-  created_at DateTime       @default(now())
-  user       User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  tasks      CeremonyTask[]
-  payroll    Payroll[]
-  advances   Advance[]
+  id               Int            @id @default(autoincrement())
+  user_id          Int            @unique
+  position         String?
+  start_date       String?
+  salary           Float?
+  status           String         @default("active")
+  work_description String?
+  work_hours       Float?         @default(8)
+  attendance_hours Float?         @default(0)
+  created_at       DateTime       @default(now())
+  user             User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tasks            CeremonyTask[]
+  payroll          Payroll[]
+  advances         Advance[]
+  daily_todos      DailyTodo[]
 
   @@map("employees")
 }
@@ -161,4 +165,16 @@ model Settings {
   updated_at    DateTime @updatedAt
 
   @@map("settings")
+}
+
+model DailyTodo {
+  id          Int      @id @default(autoincrement())
+  employee_id Int
+  date_jalali String
+  title       String
+  is_done     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  employee    Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@map("daily_todos")
 }

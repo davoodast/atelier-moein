@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // Update advance_paid in ceremony
   const payments = await prisma.ceremonyPayment.findMany({ where: { ceremony_id: parseInt(id) } });
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const totalPaid = payments.reduce((s, p) => s + (p.amount ?? 0), 0);
   await prisma.ceremony.update({ where: { id: parseInt(id) }, data: { advance_paid: totalPaid } });
 
   return NextResponse.json(payment, { status: 201 });

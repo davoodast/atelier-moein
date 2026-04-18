@@ -46,6 +46,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       salary: data.salary !== undefined ? parseFloat(data.salary) : undefined,
       status: data.status ?? undefined,
       start_date: data.start_date ?? undefined,
+      work_description: data.work_description ?? undefined,
+      work_hours: data.work_hours !== undefined ? parseFloat(data.work_hours) : undefined,
+      attendance_hours: data.attendance_hours !== undefined ? parseFloat(data.attendance_hours) : undefined,
     },
   });
 

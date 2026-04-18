@@ -137,8 +137,8 @@ export default function CeremoniesManagement() {
                   <div><label className={LABEL}>تاریخ مراسم</label>
                     <JalaliDatePicker value={formData.date_jalali} onChange={(v) => set('date_jalali', v)} placeholder="انتخاب تاریخ" /></div>
                   <div><label className={LABEL}>پیش‌پرداخت (تومان)</label>
-                    <input type="number" value={formData.advance_paid} onChange={(e) => set('advance_paid', parseInt(e.target.value) || 0)} className={INPUT} min={0} />
-                    {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{numberToWordsFa(Number(formData.advance_paid))}</p>}
+                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
+                    {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.advance_paid).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.advance_paid))}</p>}
                   </div>
                 </div>
               </>
@@ -161,12 +161,12 @@ export default function CeremoniesManagement() {
                   <div><label className={LABEL}>ساعت</label><input type="time" value={formData.time} onChange={(e) => set('time', e.target.value)} className={INPUT} /></div>
                   <div><label className={LABEL}>آدرس</label><input type="text" value={formData.address} onChange={(e) => set('address', e.target.value)} className={INPUT} /></div>
                   <div><label className={LABEL}>مبلغ کل (تومان)</label>
-                    <input type="number" value={formData.total_amount} onChange={(e) => set('total_amount', parseInt(e.target.value) || 0)} className={INPUT} min={0} />
-                    {Number(formData.total_amount) > 0 && <p className="text-xs text-purple-500 mt-1">{numberToWordsFa(Number(formData.total_amount))}</p>}
+                    <input type="text" inputMode="numeric" value={Number(formData.total_amount) > 0 ? Number(formData.total_amount).toLocaleString('fa-IR') : ''} onChange={(e) => set('total_amount', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۱۵،۰۰۰،۰۰۰" />
+                    {Number(formData.total_amount) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.total_amount).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.total_amount))}</p>}
                   </div>
                   <div><label className={LABEL}>پیش‌پرداخت (تومان)</label>
-                    <input type="number" value={formData.advance_paid} onChange={(e) => set('advance_paid', parseInt(e.target.value) || 0)} className={INPUT} min={0} />
-                    {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{numberToWordsFa(Number(formData.advance_paid))}</p>}
+                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
+                    {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.advance_paid).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.advance_paid))}</p>}
                   </div>
                   {plans.length > 0 && (
                     <div className="sm:col-span-2"><label className={LABEL}>پلن خدمات</label>
