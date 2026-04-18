@@ -79,11 +79,24 @@ export default function JalaliCalendar({ events, onDayClick, onQuickReserve, emp
     return PERSIAN_EVENTS[key1] ?? null;
   }
 
-  // رنگ‌بندی جدید: سفید = بدون مراسم | آبی = ۱ مراسم | بنفش = ۲+ مراسم
-  function dayBgClass(evts: CeremonyEvent[]): string {
-    if (evts.length === 0) return '';
-    if (evts.length === 1) return 'bg-blue-500 text-white';
-    return 'bg-purple-600 text-white';
+  // رنگ‌بندی: سفید = بدون مراسم | آبی = ۱ مراسم | بنفش = ۲+ مراسم
+  function getDayClasses(evts: CeremonyEvent[], isToday: boolean, isHoliday: boolean, canClick: boolean): string {
+    const base = 'relative aspect-square rounded-lg flex flex-col items-center justify-center text-[10px] sm:text-xs transition-all';
+    const cursor = canClick ? 'cursor-pointer hover:scale-105' : 'cursor-default';
+
+    if (evts.length >= 2) {
+      return `${base} ${cursor} bg-purple-600 text-white shadow-md`;
+    }
+    if (evts.length === 1) {
+      return `${base} ${cursor} bg-blue-500 text-white shadow-md`;
+    }
+    if (isToday) {
+      return `${base} ${cursor} ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold`;
+    }
+    if (isHoliday) {
+      return `${base} ${cursor} text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20`;
+    }
+    return `${base} ${cursor} text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50`;
   }
 
   function handleDayClick(d: number) {
@@ -135,8 +148,7 @@ export default function JalaliCalendar({ events, onDayClick, onQuickReserve, emp
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const d = i + 1;
           const evts = eventsOnDay(d);
-          const bgClass = dayBgClass(evts);
-          const isToday = today.jy === year && today.jm === month && today.jd === d;
+          const isToday_ = today.jy === year && today.jm === month && today.jd === d;
           const holiday = getHolidayName(d);
           const canClick = evts.length > 0 || (!employeeView && onQuickReserve);
 
@@ -145,25 +157,18 @@ export default function JalaliCalendar({ events, onDayClick, onQuickReserve, emp
               key={d}
               onClick={() => handleDayClick(d)}
               title={holiday ?? undefined}
-              className={`relative aspect-square rounded-md sm:rounded-lg flex flex-col items-center justify-center text-[10px] sm:text-xs transition-all
-                ${canClick ? 'cursor-pointer hover:scale-105' : 'cursor-default'}
-                ${bgClass
-                  ? bgClass
-                  : isToday
-                    ? 'ring-2 ring-purple-400 text-purple-700 dark:text-purple-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                }
-                ${evts.length > 0 ? 'shadow-sm' : ''}
-                ${holiday && evts.length === 0 ? 'text-red-500 dark:text-red-400' : ''}
-              `}
+              className={getDayClasses(evts, isToday_, !!holiday, !!canClick)}
             >
               <span className="font-medium leading-none">{d.toLocaleString('fa-IR')}</span>
               {evts.length > 1 && (
-                <span className="text-[8px] sm:text-[9px] opacity-80 leading-none mt-0.5">{evts.length.toLocaleString('fa-IR')}×</span>
+                <span className="text-[8px] sm:text-[9px] opacity-90 leading-none mt-0.5">{evts.length.toLocaleString('fa-IR')}×</span>
               )}
               {/* نقطه مناسبت */}
-              {holiday && (
-                <span className={`absolute bottom-0.5 right-0.5 w-1 h-1 rounded-full ${bgClass ? 'bg-white/70' : 'bg-red-400'}`} />
+              {holiday && evts.length === 0 && (
+                <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-400" />
+              )}
+              {holiday && evts.length > 0 && (
+                <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white/70" />
               )}
               {/* آیکون + برای روزهای خالی */}
               {evts.length === 0 && !employeeView && onQuickReserve && (

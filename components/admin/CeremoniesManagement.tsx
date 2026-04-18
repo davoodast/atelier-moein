@@ -6,6 +6,7 @@ import apiClient from '@/lib/apiClient';
 import JalaliDatePicker from '@/components/ui/JalaliDatePicker';
 import TaskAssignment from './TaskAssignment';
 import { numberToWordsFa, formatAmountFa } from '@/utils/numberToWords';
+import { toast } from 'sonner';
 
 interface Ceremony {
   id: number; type: string | null; groom_name: string | null; bride_name: string | null;
@@ -44,7 +45,7 @@ export default function CeremoniesManagement() {
   const fetchCeremonies = async () => {
     setLoading(true);
     try { const r = await apiClient.get('/ceremonies'); setCeremonies(r.data); }
-    catch (e) { console.error(e); } finally { setLoading(false); }
+    catch { toast.error('خطا در بارگذاری مراسمات'); } finally { setLoading(false); }
   };
 
   const openNew = () => {
@@ -69,18 +70,30 @@ export default function CeremoniesManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = formMode === 'quick'
-      ? { groom_name: formData.groom_name, bride_name: formData.bride_name, date_jalali: formData.date_jalali, advance_paid: formData.advance_paid, type: 'عروسی', ceremony_mode: 'quick' }
-      : { ...formData, plan_id: formData.plan_id ? Number(formData.plan_id) : null, ceremony_mode: 'full' };
+      ? { groom_name: formData.groom_name, bride_name: formData.bride_name, date_jalali: formData.date_jalali, advance_paid: Number(formData.advance_paid) || 0, type: 'عروسی', ceremony_mode: 'quick' }
+      : { ...formData, plan_id: formData.plan_id ? Number(formData.plan_id) : null, total_amount: Number(formData.total_amount) || 0, advance_paid: Number(formData.advance_paid) || 0, ceremony_mode: 'full' };
     try {
-      if (editingId) await apiClient.put(`/ceremonies/${editingId}`, payload);
-      else await apiClient.post('/ceremonies', payload);
+      if (editingId) {
+        await apiClient.put(`/ceremonies/${editingId}`, payload);
+        toast.success('مراسم بروزرسانی شد');
+      } else {
+        await apiClient.post('/ceremonies', payload);
+        toast.success(formMode === 'quick' ? 'رزرو سریع ثبت شد' : 'قرارداد کامل ثبت شد');
+      }
       fetchCeremonies(); setShowForm(false); setEditingId(null);
-    } catch (e) { console.error(e); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg ?? 'خطا در ذخیره اطلاعات');
+    }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('آیا مطمئن هستید؟')) return;
-    try { await apiClient.delete(`/ceremonies/${id}`); fetchCeremonies(); } catch (e) { console.error(e); }
+    try {
+      await apiClient.delete(`/ceremonies/${id}`);
+      fetchCeremonies();
+      toast.success('مراسم حذف شد');
+    } catch { toast.error('خطا در حذف مراسم'); }
   };
 
   const filtered = ceremonies.filter((c) =>

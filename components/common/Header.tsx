@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -9,6 +10,9 @@ export default function Header() {
   const { isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const handleLogout = async () => {
     await logout();
@@ -39,8 +43,11 @@ export default function Header() {
           <button
             onClick={toggleTheme}
             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
+            suppressHydrationWarning
           >
-            {isDark ? (
+            {!mounted ? (
+              <Moon className="w-5 h-5 text-gray-700" />
+            ) : isDark ? (
               <Sun className="w-5 h-5 text-yellow-400" />
             ) : (
               <Moon className="w-5 h-5 text-gray-700" />

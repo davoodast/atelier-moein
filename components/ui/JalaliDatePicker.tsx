@@ -5,8 +5,8 @@ import { toJalaali, toGregorian, jalaaliMonthLength } from 'jalaali-js';
 import { ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
-const MONTHS = ['ÙØ±ÙˆØ±Ø¯ÛŒÙ†','Ø§Ø±Ø¯ÛŒØ¨Ù‡Ø´Øª','Ø®Ø±Ø¯Ø§Ø¯','ØªÛŒØ±','Ù…Ø±Ø¯Ø§Ø¯','Ø´Ù‡Ø±ÛŒÙˆØ±','Ù…Ù‡Ø±','Ø¢Ø¨Ø§Ù†','Ø¢Ø°Ø±','Ø¯ÛŒ','Ø¨Ù‡Ù…Ù†','Ø§Ø³ÙÙ†Ø¯'];
-const DAYS_FA = ['Ø´','ÛŒ','Ø¯','Ø³','Ú†','Ù¾','Ø¬'];
+const MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const DAYS_FA = ['ش','ی','د','س','چ','پ','ج'];
 
 interface Props {
   value: string;
@@ -26,7 +26,7 @@ function jDayOfWeek(jy: number, jm: number, jd: number): number {
   return (dow + 1) % 7;
 }
 
-export default function JalaliDatePicker({ value, onChange, placeholder = 'Ø§Ù†ØªØ®Ø§Ø¨ ØªØ§Ø±ÛŒØ®', className = '' }: Props) {
+export default function JalaliDatePicker({ value, onChange, placeholder = 'انتخاب تاریخ', className = '' }: Props) {
   const today = todayJalali();
   const [open, setOpen] = useState(false);
   const [curYear, setCurYear] = useState(() => {

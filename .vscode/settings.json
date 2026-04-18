@@ -3,6 +3,13 @@
         "npm install": true,
         "npx prisma": true,
         "npx tsc": true,
-        "git add": true
+        "git add": true,
+        "git commit": true,
+        "/^\\$lines = Get-Content \"app\\\\admin\\\\page\\.tsx\" ; \\$lines\\[0\\.\\.321\\] \\| Set-Content \"app\\\\admin\\\\page\\.tsx\" -Encoding UTF8 ; \\(Get-Content \"app\\\\admin\\\\page\\.tsx\"\\)\\.Count$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Test-Path": true,
+        "git push": true
     }
 }
