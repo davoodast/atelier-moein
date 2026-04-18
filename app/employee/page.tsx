@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import JalaliCalendar, { type CeremonyEvent } from '@/components/ui/JalaliCalendar';
 import MainLayout from '@/components/layouts/MainLayout';
 import apiClient from '@/lib/apiClient';
+import { toast } from 'sonner';
+import { toJalaali } from 'jalaali-js';
 
 interface MyTask {
   ceremony_id: number;
@@ -20,15 +22,109 @@ interface MyTask {
   attendance_hours: number;
 }
 
+interface DailyTodo {
+  id: number; title: string; is_done: boolean; date_jalali: string;
+}
+
+interface RecurringTask {
+  id: number; title: string; description: string | null; interval: string;
+  day_of_week: number | null; day_of_month: number | null;
+  log?: { id: number; is_done: boolean; delete_requested: boolean; admin_approved: number | null };
+}
+
+interface TaskLog {
+  id: number; title: string; date_jalali: string; is_done: boolean;
+  recurring_task_id: number | null; delete_requested: boolean;
+  delete_reason: string | null; admin_approved: number | null; note: string | null;
+}
+
+function todayJalali() {
+  const now = new Date();
+  const j = toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+}
+
+const INTERVAL_LABELS: Record<string, string> = { daily: 'روزانه', weekly: 'هفتگی', monthly: 'ماهانه' };
+const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'calendar'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'todos' | 'calendar'>('overview');
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
+
+  // Todos tab state
+  const today = todayJalali();
+  const [dailyTodos, setDailyTodos] = useState<DailyTodo[]>([]);
+  const [recurring, setRecurring] = useState<RecurringTask[]>([]);
+  const [taskLogs, setTaskLogs] = useState<TaskLog[]>([]);
+  const [newTodoTitle, setNewTodoTitle] = useState('');
+  const [deleteReqId, setDeleteReqId] = useState<number | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [todosLoading, setTodosLoading] = useState(false);
 
   useEffect(() => {
     apiClient.get('/ceremonies/my-tasks/list').then(r => setTasks(r.data)).catch(() => {});
   }, []);
+
+  const fetchTodos = useCallback(async () => {
+    setTodosLoading(true);
+    try {
+      const [todosR, logsR] = await Promise.all([
+        apiClient.get('/employees/me/todos'),
+        apiClient.get('/employees/me/task-log').catch(() => ({ data: [] })),
+      ]);
+      setDailyTodos(todosR.data.todos || []);
+      setRecurring(todosR.data.recurring || []);
+      setTaskLogs(Array.isArray(logsR.data) ? logsR.data : []);
+    } catch { /* ignore */ } finally { setTodosLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'todos') fetchTodos();
+  }, [activeTab, fetchTodos]);
+
+  const addTodo = async () => {
+    if (!newTodoTitle.trim()) return;
+    try {
+      await apiClient.post('/employees/me/todos', { title: newTodoTitle.trim() });
+      setNewTodoTitle('');
+      fetchTodos();
+    } catch { toast.error('خطا در افزودن وظیفه'); }
+  };
+
+  const toggleTodo = async (todo: DailyTodo) => {
+    try {
+      await apiClient.patch('/employees/me/todos', { todo_id: todo.id, is_done: !todo.is_done });
+      fetchTodos();
+    } catch { toast.error('خطا در بروزرسانی'); }
+  };
+
+  const deleteTodo = async (todoId: number) => {
+    try {
+      await apiClient.delete(`/employees/me/todos?todo_id=${todoId}`);
+      fetchTodos();
+    } catch { toast.error('خطا در حذف'); }
+  };
+
+  const markRecurringDone = async (taskId: number, isDone: boolean) => {
+    try {
+      await apiClient.put('/employees/me/task-log', { recurring_task_id: taskId, is_done: isDone });
+      fetchTodos();
+      toast.success(isDone ? 'انجام شد!' : 'علامت‌گذاری حذف شد');
+    } catch { toast.error('خطا در بروزرسانی'); }
+  };
+
+  const requestDelete = async (logId: number) => {
+    if (!deleteReason.trim()) { toast.error('لطفاً دلیل حذف را وارد کنید'); return; }
+    try {
+      await apiClient.post('/employees/me/task-log', { log_id: logId, reason: deleteReason });
+      setDeleteReqId(null);
+      setDeleteReason('');
+      fetchTodos();
+      toast.success('درخواست حذف ارسال شد');
+    } catch { toast.error('خطا در ارسال درخواست'); }
+  };
 
   const upcoming = tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
   const done = tasks.filter(t => t.status === 'completed');
@@ -39,8 +135,17 @@ export default function EmployeeDashboardPage() {
     type: t.type, time: t.time, address: t.address, status: t.status,
   }));
 
+  const doneCount = dailyTodos.filter(t => t.is_done).length;
+  const totalTodos = dailyTodos.length;
+  const pct = totalTodos > 0 ? Math.round((doneCount / totalTodos) * 100) : 0;
+
+  const doneLogs = taskLogs.filter(l => l.is_done).length;
+  const missedLogs = taskLogs.filter(l => !l.is_done && !l.delete_requested).length;
+  const points = doneLogs - missedLogs;
+
   const TABS = [
     { k: 'overview', l: 'خلاصه', icon: LayoutDashboard },
+    { k: 'todos', l: 'وظایف امروز', icon: CheckSquare },
     { k: 'calendar', l: 'تقویم', icon: CalendarDays },
   ] as const;
 
@@ -110,6 +215,149 @@ export default function EmployeeDashboardPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'todos' && (
+            <div className="space-y-5 max-w-2xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">وظایف امروز</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{today}</p>
+                </div>
+                {/* Points badge */}
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${points >= 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                  {points >= 0 ? <ThumbsUp className="w-3.5 h-3.5" /> : <ThumbsDown className="w-3.5 h-3.5" />}
+                  {points > 0 ? '+' : ''}{points} امتیاز
+                </div>
+              </div>
+
+              {/* Daily todos */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm">وظایف روزانه</h3>
+                  <span className="text-[11px] text-gray-400">{doneCount}/{totalTodos}</span>
+                </div>
+                {totalTodos > 0 && (
+                  <div className="px-4 py-2">
+                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-blue-500' : 'bg-purple-500'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )}
+                <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                  {dailyTodos.length === 0 && !todosLoading && (
+                    <p className="text-center text-gray-400 text-sm py-6">وظیفه‌ای برای امروز ثبت نشده</p>
+                  )}
+                  {dailyTodos.map(todo => (
+                    <div key={todo.id} className="flex items-center gap-3 px-4 py-3 group">
+                      <button onClick={() => toggleTodo(todo)}>
+                        {todo.is_done ? <CheckSquare className="w-5 h-5 text-green-500" /> : <Square className="w-5 h-5 text-gray-300" />}
+                      </button>
+                      <span className={`flex-1 text-sm ${todo.is_done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</span>
+                      <button onClick={() => deleteTodo(todo.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                        <X className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 flex gap-2 border-t border-gray-100 dark:border-gray-700">
+                  <input
+                    value={newTodoTitle}
+                    onChange={e => setNewTodoTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addTodo()}
+                    placeholder="وظیفه جدید..."
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  />
+                  <button onClick={addTodo} disabled={!newTodoTitle.trim()}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Recurring tasks */}
+              {recurring.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-blue-500" />
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm">وظایف دوره‌ای امروز</h3>
+                  </div>
+                  <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                    {recurring.map(task => {
+                      const log = task.log;
+                      const isDone = log?.is_done ?? false;
+                      const isPendingDelete = log?.delete_requested && log?.admin_approved == null;
+                      return (
+                        <div key={task.id} className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => !isPendingDelete && markRecurringDone(task.id, !isDone)} disabled={isPendingDelete}>
+                              {isDone ? <CheckSquare className="w-5 h-5 text-green-500" /> : <Square className="w-5 h-5 text-gray-300" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm ${isDone ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{task.title}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {INTERVAL_LABELS[task.interval]}
+                                {task.interval === 'weekly' && task.day_of_week != null ? ` — ${DAYS_FA[task.day_of_week]}` : ''}
+                              </p>
+                            </div>
+                            {isPendingDelete && (
+                              <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />درخواست حذف
+                              </span>
+                            )}
+                            {!isPendingDelete && log && (
+                              <button
+                                onClick={() => { setDeleteReqId(log.id); setDeleteReason(''); }}
+                                className="text-[10px] text-red-400 hover:underline"
+                              >
+                                درخواست حذف
+                              </button>
+                            )}
+                          </div>
+                          {deleteReqId === log?.id && (
+                            <div className="mt-2 mr-8 flex gap-2">
+                              <input
+                                value={deleteReason}
+                                onChange={e => setDeleteReason(e.target.value)}
+                                placeholder="دلیل حذف..."
+                                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
+                              />
+                              <button onClick={() => requestDelete(log!.id)}
+                                className="px-2.5 py-1 bg-red-500 text-white rounded-lg text-xs hover:bg-red-600">ارسال</button>
+                              <button onClick={() => setDeleteReqId(null)}
+                                className="px-2.5 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-xs">لغو</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Task log / history */}
+              {taskLogs.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm">تاریخچه وظایف</h3>
+                  </div>
+                  <div className="divide-y divide-gray-50 dark:divide-gray-700/50 max-h-64 overflow-y-auto">
+                    {taskLogs.slice(0, 30).map(log => (
+                      <div key={log.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${log.is_done ? 'bg-green-500' : log.delete_requested ? 'bg-yellow-400' : 'bg-red-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-700 dark:text-gray-300 truncate">{log.title}</p>
+                          <p className="text-[10px] text-gray-400">{log.date_jalali}</p>
+                        </div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${log.is_done ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : log.delete_requested ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                          {log.is_done ? '+1' : log.delete_requested ? 'در انتظار' : '-1'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

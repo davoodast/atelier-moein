@@ -10,6 +10,7 @@
             "matchCommandLine": true
         },
         "Test-Path": true,
-        "git push": true
+        "git push": true,
+        "Set-Content": true
     }
 }

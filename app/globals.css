@@ -22,7 +22,7 @@ html {
 
 body {
   font-family: 'A-Iranian-Sans', system-ui, sans-serif;
-  background-color: white;
+  background-color: #f0ede8;
   color: #111827;
   transition: background-color 0.3s, color 0.3s;
 }

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X } from 'lucide-react';
+import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle } from 'lucide-react';
 import CeremoniesManagement from '@/components/admin/CeremoniesManagement';
 import EmployeesManagement from '@/components/admin/EmployeesManagement';
 import PlansManagement from '@/components/admin/PlansManagement';
@@ -11,6 +11,7 @@ import MainLayout from '@/components/layouts/MainLayout';
 import apiClient from '@/lib/apiClient';
 import { formatAmountFa, numberToWordsFa } from '@/utils/numberToWords';
 import { toast } from 'sonner';
+import { toJalaali } from 'jalaali-js';
 
 interface Ceremony {
   id: number; type: string; groom_name: string | null; bride_name: string | null;
@@ -26,7 +27,7 @@ interface QuickReserveProps {
 }
 
 function QuickReserveModal({ initialDate, onClose, onSuccess }: QuickReserveProps) {
-  const [form, setForm] = useState({ groom_name: '', bride_name: '', date_jalali: initialDate, advance_paid: '' });
+  const [form, setForm] = useState({ groom_name: '', bride_name: '', date_jalali: initialDate, advance_paid: '', address: '' });
   const [loading, setLoading] = useState(false);
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -38,6 +39,7 @@ function QuickReserveModal({ initialDate, onClose, onSuccess }: QuickReserveProp
       await apiClient.post('/ceremonies', {
         groom_name: form.groom_name, bride_name: form.bride_name,
         date_jalali: form.date_jalali, advance_paid: Number(form.advance_paid) || 0,
+        address: form.address || null,
         type: 'عروسی', ceremony_mode: 'quick',
       });
       toast.success('رزرو با موفقیت ثبت شد');
@@ -76,6 +78,15 @@ function QuickReserveModal({ initialDate, onClose, onSuccess }: QuickReserveProp
           <div>
             <label className={LABEL}>تاریخ مراسم</label>
             <JalaliDatePicker value={form.date_jalali} onChange={v => set('date_jalali', v)} placeholder="انتخاب تاریخ" />
+          </div>
+          <div>
+            <label className={LABEL}>آدرس برگزاری</label>
+            <input
+              value={form.address}
+              onChange={e => set('address', e.target.value)}
+              className={INPUT}
+              placeholder="آدرس سالن یا محل برگزاری (اختیاری)"
+            />
           </div>
           <div>
             <label className={LABEL}>پیش‌پرداخت (تومان)</label>
@@ -129,8 +140,16 @@ export default function AdminDashboardPage() {
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
   const [quickReserveDate, setQuickReserveDate] = useState<string | null>(null);
+  const [todayCeremonies, setTodayCeremonies] = useState<Ceremony[]>([]);
 
-  const fetchCeremonies = () => apiClient.get('/ceremonies').then(r => setCeremonies(r.data)).catch(() => {});
+  const fetchCeremonies = () => apiClient.get('/ceremonies').then(r => {
+    const all = r.data as Ceremony[];
+    setCeremonies(all);
+    const now = new Date();
+    const j = toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const todayStr = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+    setTodayCeremonies(all.filter((c: Ceremony) => c.date_jalali === todayStr));
+  }).catch(() => {});
   useEffect(() => { fetchCeremonies(); }, []);
 
   const totalRevenue = ceremonies.reduce((s, c) => s + (c.total_amount || 0), 0);
@@ -166,6 +185,7 @@ export default function AdminDashboardPage() {
   const calEvents: CeremonyEvent[] = ceremonies.filter(c => c.date_jalali).map(c => ({
     id: c.id, date_jalali: c.date_jalali!, groom_name: c.groom_name, bride_name: c.bride_name,
     type: c.type, time: c.time, address: c.address, status: c.status,
+    tasks: [],
   }));
 
   const TABS = [
@@ -196,6 +216,33 @@ export default function AdminDashboardPage() {
           {activeTab === 'dashboard' && (
             <div className="space-y-5 sm:space-y-8">
               <div><h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">داشبورد مدیریت</h1></div>
+
+              {/* Today's ceremony widget */}
+              {todayCeremonies.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-5 h-5" />
+                    <h3 className="font-bold text-sm sm:text-base">مراسم امروز ({todayCeremonies.length} مراسم)</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {todayCeremonies.map(c => (
+                      <div key={c.id} className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="font-semibold text-sm sm:text-base">{c.type} — {c.groom_name ?? '—'} و {c.bride_name ?? '—'}</p>
+                            {c.time && <p className="text-white/80 text-xs mt-1">⏰ {c.time}</p>}
+                            {c.address && <p className="text-white/80 text-xs mt-0.5">📍 {c.address}</p>}
+                          </div>
+                          <button onClick={() => { setActiveTab('calendar'); }}
+                            className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors">
+                            جزئیات
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
                 {stats.map(s => { const Icon = s.icon; return (
                   <div key={s.title} className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-5 shadow-sm">
@@ -261,45 +308,72 @@ export default function AdminDashboardPage() {
           {activeTab === 'plans' && <PlansManagement />}
 
           {activeTab === 'calendar' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">تقویم مراسم‌ها</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">تقویم مراسم‌ها</h2>
                 <button onClick={() => setQuickReserveDate('')}
                   className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium">
                   <Plus className="w-4 h-4" />رزرو سریع
                 </button>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
                   <JalaliCalendar
                     events={calEvents}
-                    onDayClick={(d, evts) => setSelectedDay({ date: d, events: evts })}
+                    onDayClick={async (d, evts) => {
+                      // Fetch tasks for each ceremony
+                      const detailed = await Promise.all(evts.map(async (e) => {
+                        try {
+                          const r = await apiClient.get(`/ceremonies/${e.id}`);
+                          return { ...e, tasks: r.data.tasks || [] };
+                        } catch { return e; }
+                      }));
+                      setSelectedDay({ date: d, events: detailed });
+                    }}
                     onQuickReserve={(d) => setQuickReserveDate(d)}
                   />
                 </div>
-                <div>
+                <div className="lg:max-h-[500px] lg:overflow-y-auto">
                   {selectedDay ? (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 space-y-3">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 space-y-3 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
-                        <h3 className="font-bold text-gray-900 dark:text-white">مراسم {selectedDay.date}</h3>
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm">{selectedDay.date}</h3>
                         <button onClick={() => setQuickReserveDate(selectedDay.date)}
                           className="flex items-center gap-1 text-xs text-purple-500 hover:underline">
-                          <Plus className="w-3.5 h-3.5" />افزودن
+                          <Plus className="w-3.5 h-3.5" />افزودن مراسم
                         </button>
                       </div>
                       {selectedDay.events.map(e => (
-                        <div key={e.id} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700 space-y-1">
-                          <p className="font-medium dark:text-white text-sm">{e.type} — {e.groom_name ?? '—'} و {e.bride_name ?? '—'}</p>
+                        <div key={e.id} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium dark:text-white text-sm">{e.type} — {e.groom_name ?? '—'} و {e.bride_name ?? '—'}</p>
+                            {statusBadge(e.status)}
+                          </div>
                           {e.time && <p className="text-xs text-gray-500 dark:text-gray-400">⏰ {e.time}</p>}
                           {e.address && <p className="text-xs text-gray-500 dark:text-gray-400">📍 {e.address}</p>}
-                          <div className="pt-1">{statusBadge(e.status)}</div>
+                          {/* Employee tasks */}
+                          {e.tasks && e.tasks.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">عوامل برگزاری:</p>
+                              <div className="space-y-1">
+                                {e.tasks.map((t, ti) => (
+                                  <div key={ti} className="flex items-center gap-2 text-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0" />
+                                    <span className="font-medium dark:text-gray-300">{t.username}</span>
+                                    {t.role_description && <span className="text-gray-400 dark:text-gray-500">— {t.role_description}</span>}
+                                    {(t.attendance_hours ?? 0) > 0 && <span className="text-gray-400">({t.attendance_hours}h)</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center h-48 gap-3">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center h-40 gap-3 border border-gray-200 dark:border-gray-700">
                       <CalendarDays className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                      <p className="text-gray-400 text-sm text-center">روی روز رنگی کلیک کنید<br/>یا روی روز خالی برای رزرو سریع</p>
+                      <p className="text-gray-400 text-sm text-center">روی روز رنگی کلیک کنید</p>
                     </div>
                   )}
                 </div>

@@ -97,9 +97,16 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose }: P
                   <input type="text" placeholder="شرح وظیفه (مثلاً: عکاسی اصلی)" value={form.role_description}
                     onChange={(e) => setForm((f) => ({ ...f, role_description: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
-                  <input type="number" placeholder="ساعت حضور (اختیاری)" value={form.attendance_hours}
-                    onChange={(e) => setForm((f) => ({ ...f, attendance_hours: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" />
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">ساعت حضور (فرمت ۲۴ ساعته)</label>
+                    <input
+                      type="time"
+                      value={form.attendance_hours}
+                      onChange={(e) => setForm((f) => ({ ...f, attendance_hours: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">ساعت شروع حضور کارمند را انتخاب کنید</p>
+                  </div>
                   <button onClick={addTask} disabled={saving || !form.employee_id || !form.role_description}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors">
                     <Plus className="w-4 h-4" />

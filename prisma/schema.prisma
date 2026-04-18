@@ -43,11 +43,13 @@ model Employee {
   work_hours       Float?         @default(8)
   attendance_hours Float?         @default(0)
   created_at       DateTime       @default(now())
-  user             User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   tasks            CeremonyTask[]
   payroll          Payroll[]
   advances         Advance[]
   daily_todos      DailyTodo[]
+  recurring_tasks  RecurringTask[]
+  task_logs        TaskLog[]
 
   @@map("employees")
 }
@@ -177,4 +179,38 @@ model DailyTodo {
   employee    Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
 
   @@map("daily_todos")
+}
+
+model RecurringTask {
+  id           Int       @id @default(autoincrement())
+  employee_id  Int
+  title        String
+  description  String?
+  interval     String    @default("weekly") // daily, weekly, monthly
+  day_of_week  Int?      // 0=Sat,1=Sun,2=Mon,3=Tue,4=Wed,5=Thu,6=Fri
+  day_of_month Int?      // 1-31 for monthly
+  is_active    Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  employee     Employee  @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  logs         TaskLog[]
+
+  @@map("recurring_tasks")
+}
+
+model TaskLog {
+  id                Int            @id @default(autoincrement())
+  employee_id       Int
+  recurring_task_id Int?
+  title             String
+  date_jalali       String
+  is_done           Boolean        @default(true)
+  delete_requested  Boolean        @default(false)
+  delete_reason     String?
+  admin_approved    Int?           // null=pending, 1=approved, 0=rejected
+  note              String?
+  created_at        DateTime       @default(now())
+  employee          Employee       @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  recurring_task    RecurringTask? @relation(fields: [recurring_task_id], references: [id], onDelete: SetNull)
+
+  @@map("task_logs")
 }

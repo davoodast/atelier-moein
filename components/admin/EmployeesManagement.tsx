@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw } from 'lucide-react';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { toJalaali } from 'jalaali-js';
@@ -17,8 +17,16 @@ interface DailyTodo {
   id: number; employee_id: number; date_jalali: string; title: string; is_done: boolean;
 }
 
+interface RecurringTask {
+  id: number; employee_id: number; title: string; description: string | null;
+  interval: string; day_of_week: number | null; day_of_month: number | null; is_active: boolean;
+}
+
 const F = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40';
 const LABEL = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
+
+const INTERVAL_LABELS: Record<string, string> = { daily: 'روزانه', weekly: 'هفتگی', monthly: 'ماهانه' };
+const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 
 function todayJalali() {
   const now = new Date();
@@ -121,6 +129,114 @@ function TodoPanel({ employee }: { employee: Employee }) {
           className="px-2.5 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function RecurringTaskPanel({ employee }: { employee: Employee }) {
+  const [tasks, setTasks] = useState<RecurringTask[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', interval: 'weekly', day_of_week: '0', day_of_month: '1' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { fetchTasks(); }, [employee.id]);
+
+  const fetchTasks = async () => {
+    try {
+      const r = await apiClient.get(`/employees/${employee.id}/recurring-tasks`);
+      setTasks(r.data);
+    } catch { /* ignore */ }
+  };
+
+  const addTask = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await apiClient.post(`/employees/${employee.id}/recurring-tasks`, {
+        title: form.title.trim(),
+        description: form.description || null,
+        interval: form.interval,
+        day_of_week: form.interval === 'weekly' ? parseInt(form.day_of_week) : null,
+        day_of_month: form.interval === 'monthly' ? parseInt(form.day_of_month) : null,
+      });
+      setShowAdd(false);
+      setForm({ title: '', description: '', interval: 'weekly', day_of_week: '0', day_of_month: '1' });
+      fetchTasks();
+      toast.success('وظیفه دوره‌ای اضافه شد');
+    } catch { toast.error('خطا در ذخیره'); } finally { setSaving(false); }
+  };
+
+  const deleteTask = async (taskId: number) => {
+    try {
+      await apiClient.delete(`/employees/${employee.id}/recurring-tasks?task_id=${taskId}`);
+      fetchTasks();
+      toast.success('وظیفه حذف شد');
+    } catch { toast.error('خطا در حذف'); }
+  };
+
+  return (
+    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5 text-blue-500" />
+          <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">وظایف دوره‌ای ({tasks.length})</p>
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)} className="text-xs text-blue-500 hover:underline">
+          {showAdd ? 'انصراف' : '+ افزودن'}
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="mt-2 p-2.5 bg-white dark:bg-gray-700 rounded-lg space-y-2 border border-blue-100 dark:border-blue-900/30">
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="عنوان وظیفه..." className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-600 dark:text-white rounded-lg" />
+          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="توضیحات (اختیاری)" className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-600 dark:text-white rounded-lg" />
+          <div className="flex gap-2">
+            <select value={form.interval} onChange={e => setForm(f => ({ ...f, interval: e.target.value }))}
+              className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-600 dark:text-white rounded-lg">
+              <option value="daily">روزانه</option>
+              <option value="weekly">هفتگی</option>
+              <option value="monthly">ماهانه</option>
+            </select>
+            {form.interval === 'weekly' && (
+              <select value={form.day_of_week} onChange={e => setForm(f => ({ ...f, day_of_week: e.target.value }))}
+                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-600 dark:text-white rounded-lg">
+                {DAYS_FA.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+            )}
+            {form.interval === 'monthly' && (
+              <input type="number" min="1" max="31" value={form.day_of_month}
+                onChange={e => setForm(f => ({ ...f, day_of_month: e.target.value }))}
+                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-600 dark:text-white rounded-lg" placeholder="روز ماه" />
+            )}
+          </div>
+          <button onClick={addTask} disabled={saving || !form.title.trim()}
+            className="w-full py-1.5 bg-blue-500 text-white rounded-lg text-xs hover:bg-blue-600 disabled:opacity-50">
+            {saving ? 'در حال ذخیره...' : 'ذخیره'}
+          </button>
+        </div>
+      )}
+
+      <div className="mt-2 space-y-1.5">
+        {tasks.map(t => (
+          <div key={t.id} className="flex items-center gap-2 group">
+            <RefreshCw className="w-3 h-3 text-blue-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-700 dark:text-gray-200 truncate">{t.title}</p>
+              <p className="text-[10px] text-gray-400">
+                {INTERVAL_LABELS[t.interval]}
+                {t.interval === 'weekly' && t.day_of_week != null ? ` — ${DAYS_FA[t.day_of_week]}` : ''}
+                {t.interval === 'monthly' && t.day_of_month != null ? ` — روز ${t.day_of_month}` : ''}
+              </p>
+            </div>
+            <button onClick={() => deleteTask(t.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <X className="w-3 h-3 text-red-400" />
+            </button>
+          </div>
+        ))}
+        {tasks.length === 0 && <p className="text-[11px] text-gray-400 text-center py-1">وظیفه دوره‌ای تعریف نشده</p>}
       </div>
     </div>
   );
@@ -332,6 +448,7 @@ export default function EmployeesManagement() {
                   </button>
                 </div>
                 {expandedId === emp.id && <TodoPanel employee={emp} />}
+                {expandedId === emp.id && <RecurringTaskPanel employee={emp} />}
                 {emp.work_description && (
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 line-clamp-2">{emp.work_description}</p>
                 )}
@@ -366,6 +483,7 @@ export default function EmployeesManagement() {
                   </div>
                 )}
                 <TodoPanel employee={emp} />
+                <RecurringTaskPanel employee={emp} />
               </div>
             )}
           </div>
