@@ -14,6 +14,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       tasks: {
         include: { employee: { include: { user: true } } },
       },
+      assignments: {
+        include: {
+          user: { select: { id: true, username: true, email: true, phone: true } },
+          role: { select: { id: true, name: true, description: true } },
+        },
+        orderBy: { assignedAt: 'asc' },
+      },
     },
   });
 
@@ -30,6 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       username: t.employee?.user?.username || '',
       position: t.employee?.position || '',
     })),
+    assignments: ceremony.assignments,
   };
 
   return NextResponse.json(result);
