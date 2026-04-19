@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJWT } from '@/lib/auth';
-import { writeFileSync, mkdirSync, appendFileSync } from 'fs';
 
+// Middleware runs in Edge runtime – only console.log is available here.
+// File-based logging is handled inside the Node.js API routes (not here).
 function logRequest(request: NextRequest, tag = '') {
   const ip =
     request.headers.get('x-forwarded-for') ||
     request.headers.get('x-real-ip') ||
     'unknown';
   const ua = (request.headers.get('user-agent') || '-').slice(0, 80);
-  const line = `[${new Date().toISOString()}] ${request.method} ${request.nextUrl.pathname} | IP:${ip} | ${ua} ${tag}\n`;
-  process.stdout.write(line);
-  try {
-    mkdirSync('logs', { recursive: true });
-    appendFileSync('logs/access.log', line);
-  } catch {}
+  const line = `[${new Date().toISOString()}] ${request.method} ${request.nextUrl.pathname} | IP:${ip} | ${ua} ${tag}`;
+  console.log(line);
 }
 
 export async function middleware(request: NextRequest) {

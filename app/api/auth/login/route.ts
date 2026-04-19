@@ -2,8 +2,24 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { signJWT } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
+import { mkdirSync, appendFileSync } from 'fs';
+
+function writeLog(msg: string) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  console.log(line.trimEnd());
+  try {
+    mkdirSync('logs', { recursive: true });
+    appendFileSync('logs/access.log', line);
+  } catch {}
+}
 
 export async function POST(request: Request) {
+  const ip =
+    (request as any).headers?.get?.('x-forwarded-for') ||
+    (request as any).headers?.get?.('x-real-ip') ||
+    'unknown';
+  const ua = ((request as any).headers?.get?.('user-agent') || '-').slice(0, 80);
+
   try {
     const { username, password } = await request.json();
     if (!username || !password) {
@@ -16,11 +32,13 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
+      writeLog(`LOGIN FAIL  user="${username}" IP:${ip} UA:${ua}`);
       return NextResponse.json({ error: 'نام کاربری یا رمز عبور اشتباه است' }, { status: 401 });
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
+      writeLog(`LOGIN FAIL  user="${username}" IP:${ip} UA:${ua}`);
       return NextResponse.json({ error: 'نام کاربری یا رمز عبور اشتباه است' }, { status: 401 });
     }
 
@@ -30,6 +48,8 @@ export async function POST(request: Request) {
       username: user.username,
       role: roleName,
     });
+
+    writeLog(`LOGIN OK    user="${username}" role=${roleName} IP:${ip} UA:${ua}`);
 
     const responseData = {
       id: user.id,
@@ -53,6 +73,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch {
+    writeLog(`LOGIN ERROR IP:${ip} UA:${ua}`);
     return NextResponse.json({ error: 'خطای سرور' }, { status: 500 });
   }
 }
