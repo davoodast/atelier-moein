@@ -18,6 +18,9 @@ export default function HomePage() {
   const { isDark, toggleTheme } = useTheme();
   const [idx, setIdx] = useState(0);
   const [fading, setFading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (user) router.push(user.role === 'admin' || user.role === 'accountant' ? '/admin' : '/employee');
@@ -64,8 +67,8 @@ export default function HomePage() {
           Atelier Moein
         </span>
         <button onClick={toggleTheme} className="p-1 hover:opacity-70 transition-opacity" aria-label="تغییر تم"
-          style={{ color: 'rgba(255,255,255,0.35)' }}>
-          {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          style={{ color: 'rgba(255,255,255,0.35)' }} suppressHydrationWarning>
+          {mounted && (isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />)}
         </button>
       </header>
 

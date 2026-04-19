@@ -19,8 +19,12 @@ export async function middleware(request: NextRequest) {
 
   logRequest(request);
 
-  // --- Protect /admin and /employee ---
-  if (pathname.startsWith('/admin') || pathname.startsWith('/employee')) {
+  // --- Protect /admin, /employee, /settings ---
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/employee') ||
+    pathname.startsWith('/settings')
+  ) {
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
@@ -38,6 +42,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/employee') && !['admin', 'employee', 'accountant'].includes(user.role)) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    // /settings: must be authenticated (API routes do permission check)
   }
 
   // --- Redirect logged-in users away from /login ---
@@ -53,5 +58,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/employee/:path*', '/login'],
+  matcher: ['/admin/:path*', '/employee/:path*', '/settings/:path*', '/login'],
 };
