@@ -4,6 +4,7 @@ import withPWA from '@ducanh2912/next-pwa';
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
+  output: 'standalone',
 };
 
 export default withPWA({

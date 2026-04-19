@@ -127,16 +127,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Info */}
-          <div className={`mt-8 pt-8 border-t transition-colors duration-300 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-            <p className={`text-xs font-light text-center mb-3 transition-colors duration-300 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-              اطلاعات نمونه برای آزمایش:
-            </p>
-            <div className={`text-xs font-light space-y-1 text-center transition-colors duration-300 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              <p>نام کاربری: <span className="font-medium">admin</span></p>
-              <p>رمز عبور: <span className="font-medium">password123</span></p>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

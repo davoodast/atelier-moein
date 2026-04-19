@@ -11,6 +11,7 @@
         },
         "Test-Path": true,
         "git push": true,
-        "Set-Content": true
+        "Set-Content": true,
+        "npx tsx": true
     }
 }
