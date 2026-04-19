@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, isAdmin } from '@/lib/auth';
 
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!authUser || !isAdmin(authUser)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const data = await request.json();
   const ceremony = await prisma.ceremony.create({

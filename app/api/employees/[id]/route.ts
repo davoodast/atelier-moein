@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!authUser || !isAdmin(authUser)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const data = await request.json();
@@ -76,8 +76,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const employee = await prisma.employee.findUnique({ where: { id: parseInt(id) } });
   if (!employee) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await prisma.employee.delete({ where: { id: parseInt(id) } });
-  await prisma.user.delete({ where: { id: employee.user_id } });
+  // Use transaction: delete employee first (references user), then delete user
+  await prisma.$transaction([
+    prisma.employee.delete({ where: { id: parseInt(id) } }),
+    prisma.user.delete({ where: { id: employee.user_id } }),
+  ]);
 
   return NextResponse.json({ message: 'Deleted' });
 }

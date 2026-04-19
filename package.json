@@ -43,5 +43,8 @@
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^15.5.15"
   }
 }

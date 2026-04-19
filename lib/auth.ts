@@ -49,7 +49,7 @@ export async function getAuthUser(request: Request): Promise<JWTPayload | null> 
 }
 
 export function isAdmin(user: JWTPayload | null): boolean {
-  return user?.role === 'admin';
+  return ['admin', 'accountant'].includes(user?.role ?? '');
 }
 
 export function isEmployee(user: JWTPayload | null): boolean {

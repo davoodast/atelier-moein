@@ -41,5 +41,8 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ user, employee }, { status: 201 });
+  return NextResponse.json({
+    user: { id: user.id, username: user.username, email: user.email, phone: user.phone, role_id: user.role_id },
+    employee,
+  }, { status: 201 });
 }

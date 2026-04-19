@@ -32,7 +32,9 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose }: P
       await apiClient.post(`/ceremonies/${ceremonyId}/tasks`, {
         employee_id: parseInt(form.employee_id),
         role_description: form.role_description,
-        attendance_hours: parseFloat(form.attendance_hours) || 0,
+        attendance_hours: form.attendance_hours
+          ? (() => { const [h, m] = form.attendance_hours.split(':').map(Number); return h + (m || 0) / 60; })()
+          : 0,
       });
       const res = await apiClient.get(`/ceremonies/${ceremonyId}`);
       setTasks(res.data.tasks || []);

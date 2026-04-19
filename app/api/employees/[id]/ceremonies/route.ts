@@ -15,6 +15,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     include: { ceremony: true },
   });
 
-  const ceremonies = tasks.map((t) => t.ceremony);
+  // Deduplicate: an employee may have multiple tasks in the same ceremony
+  const seen = new Set<number>();
+  const ceremonies = tasks
+    .map((t) => t.ceremony)
+    .filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
   return NextResponse.json(ceremonies);
 }

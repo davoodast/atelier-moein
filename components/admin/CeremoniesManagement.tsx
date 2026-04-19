@@ -21,6 +21,12 @@ const EMPTY_FORM = {
   time: '', address: '', total_amount: 0, advance_paid: 0, plan_id: '', ceremony_mode: 'quick',
 };
 
+// Normalize Persian/Arabic digits to ASCII
+function toEnDigits(s: string): string {
+  return s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+          .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+}
+
 const INPUT = 'w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40';
 const LABEL = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
 
@@ -150,7 +156,7 @@ export default function CeremoniesManagement() {
                   <div><label className={LABEL}>تاریخ مراسم</label>
                     <JalaliDatePicker value={formData.date_jalali} onChange={(v) => set('date_jalali', v)} placeholder="انتخاب تاریخ" /></div>
                   <div><label className={LABEL}>پیش‌پرداخت (تومان)</label>
-                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
+                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(toEnDigits(e.target.value).replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
                     {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.advance_paid).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.advance_paid))}</p>}
                   </div>
                 </div>
@@ -174,11 +180,11 @@ export default function CeremoniesManagement() {
                   <div><label className={LABEL}>ساعت</label><input type="time" value={formData.time} onChange={(e) => set('time', e.target.value)} className={INPUT} /></div>
                   <div><label className={LABEL}>آدرس</label><input type="text" value={formData.address} onChange={(e) => set('address', e.target.value)} className={INPUT} /></div>
                   <div><label className={LABEL}>مبلغ کل (تومان)</label>
-                    <input type="text" inputMode="numeric" value={Number(formData.total_amount) > 0 ? Number(formData.total_amount).toLocaleString('fa-IR') : ''} onChange={(e) => set('total_amount', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۱۵،۰۰۰،۰۰۰" />
+                    <input type="text" inputMode="numeric" value={Number(formData.total_amount) > 0 ? Number(formData.total_amount).toLocaleString('fa-IR') : ''} onChange={(e) => set('total_amount', parseInt(toEnDigits(e.target.value).replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۱۵،۰۰۰،۰۰۰" />
                     {Number(formData.total_amount) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.total_amount).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.total_amount))}</p>}
                   </div>
                   <div><label className={LABEL}>پیش‌پرداخت (تومان)</label>
-                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
+                    <input type="text" inputMode="numeric" value={Number(formData.advance_paid) > 0 ? Number(formData.advance_paid).toLocaleString('fa-IR') : ''} onChange={(e) => set('advance_paid', parseInt(toEnDigits(e.target.value).replace(/[^0-9]/g, '')) || 0)} className={INPUT} placeholder="مثال: ۳،۰۰۰،۰۰۰" />
                     {Number(formData.advance_paid) > 0 && <p className="text-xs text-purple-500 mt-1">{Number(formData.advance_paid).toLocaleString('fa-IR')} — {numberToWordsFa(Number(formData.advance_paid))}</p>}
                   </div>
                   {plans.length > 0 && (

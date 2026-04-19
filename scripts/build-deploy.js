@@ -65,7 +65,7 @@ copyDir(path.join(ROOT, 'public'), path.join(DEPLOY, 'public'));
 // So Prisma will look for: deploy/prisma/prisma/dev.db
 console.log('[5/5] Copying SQLite database...');
 const dbSrc = path.join(ROOT, 'prisma', 'prisma', 'dev.db');
-const dbDest = path.join(DEPLOY, 'prisma', 'prisma', 'dev.db');
+const dbDest = path.join(DEPLOY, 'prisma', 'dev.db');
 fs.mkdirSync(path.dirname(dbDest), { recursive: true });
 fs.copyFileSync(dbSrc, dbDest);
 
@@ -106,11 +106,12 @@ echo.
 
 set NODE_ENV=production
 set PORT=3000
+set DATABASE_URL=file:./prisma/dev.db
 set COOKIE_SECURE=false
 
 node server.js 2>&1 | powershell -NoProfile -Command "\`$input | Tee-Object -FilePath '%LOGFILE%' -Append"
 `;
-fs.writeFileSync(path.join(DEPLOY, 'Start.bat'), startBat, 'ascii');
+fs.writeFileSync(path.join(DEPLOY, 'Start.bat'), startBat, 'utf-8');
 
 // ── Done ──────────────────────────────────────────────────────────────────────
 const deploySize = getDirSizeMB(DEPLOY);
