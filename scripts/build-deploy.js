@@ -81,6 +81,12 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000 " ^| findstr "LISTENIN
     taskkill /F /PID %%p > nul 2>&1
 )
 
+:: Build ABSOLUTE path for DATABASE_URL
+:: Prisma SQLite on Windows requires "file:C:/path" format (forward slashes, no triple-slash)
+set "_DB=%~dp0prisma\\dev.db"
+set "_DB=%_DB:\\=/%"
+set "DATABASE_URL=file:%_DB%"
+
 set "LOCAL_IP=localhost"
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
     set "LOCAL_IP=%%a"
@@ -102,7 +108,6 @@ echo.
 
 set NODE_ENV=production
 set PORT=3000
-set DATABASE_URL=file:./prisma/dev.db
 set COOKIE_SECURE=false
 
 node server.js

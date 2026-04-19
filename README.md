@@ -154,8 +154,8 @@ npx prisma studio
 
 | نقش | نام کاربری | رمز عبور |
 |---|---|---|
-| مدیر | `admin` | `admin123` |
-| کارمند نمونه | `employee1` | `emp123` |
+| مدیر | `admin` | `password123` |
+| کارمند نمونه | `employee1` | `password123` |
 
 ---
 
