@@ -12,6 +12,10 @@
         "Test-Path": true,
         "git push": true,
         "Set-Content": true,
-        "npx tsx": true
+        "npx tsx": true,
+        "/^Get-CimInstance Win32_Process -Filter \"Name='node\\.exe'\" \\| Select-Object ProcessId, CommandLine \\| Format-List$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

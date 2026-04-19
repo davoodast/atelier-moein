@@ -76,13 +76,12 @@ title Atelier Moein - Production Server
 chcp 65001 > nul
 cd /d "%~dp0"
 
-echo.
-echo  ========================================
-echo   Atelier Moein - Production Server
-echo  ========================================
-echo.
+:: Kill previous server on port 3000
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000 " ^| findstr "LISTENING"') do (
+    taskkill /F /PID %%p > nul 2>&1
+)
 
-:: Detect local network IP
+set "LOCAL_IP=localhost"
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
     set "LOCAL_IP=%%a"
     goto :got_ip
@@ -90,18 +89,15 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
 :got_ip
 set "LOCAL_IP=%LOCAL_IP: =%"
 
-if not exist "logs" mkdir "logs"
-set LOGFILE=%~dp0logs\\server.log
-
+echo.
 echo  ========================================
-echo   Atelier Moein Server is Running Successfully
+echo   Atelier Moein - Production Server
 echo  ========================================
 echo.
 echo   Local:   http://localhost:3000
 echo   Network: http://%LOCAL_IP%:3000
 echo.
-echo   Logs:    %LOGFILE%
-echo   Press Ctrl+C to stop the server...
+echo   To stop: close this window or Ctrl+C
 echo.
 
 set NODE_ENV=production
@@ -109,7 +105,8 @@ set PORT=3000
 set DATABASE_URL=file:./prisma/dev.db
 set COOKIE_SECURE=false
 
-node server.js 2>&1 | powershell -NoProfile -Command "\`$input | Tee-Object -FilePath '%LOGFILE%' -Append"
+node server.js
+if errorlevel 1 pause
 `;
 fs.writeFileSync(path.join(DEPLOY, 'Start.bat'), startBat, 'utf-8');
 
