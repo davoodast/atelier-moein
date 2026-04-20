@@ -53,7 +53,63 @@
 
 ---
 
-## 🚀 راه‌اندازی محلی
+## � قوانین دسترسی و RBAC
+
+سیستم کنترل دسترسی مبتنی بر نقش (Role-Based Access Control) در این پروژه چند لایه دارد:
+
+### انواع نقش
+
+| نوع | شرح |
+|-----|------|
+| **سیستمی (`isSystem: true`)** | نقش‌های پایه‌ای که توسط سیستم ایجاد شده‌اند (`admin`، `accountant`، `employee`). قابل حذف نیستند و ویرایش آن‌ها نیاز به مجوز `role.manage_system` دارد. |
+| **سفارشی** | نقش‌هایی که مدیر ایجاد می‌کند و مجوزهای آن‌ها از طریق ماتریس مجوزها تنظیم می‌شود. |
+
+نقش `admin` همیشه به همه‌چیز دسترسی دارد (مجوز `*`). سایر کاربران فقط به مجوزهایی که به نقش‌شان داده شده دسترسی دارند.
+
+### گروه‌بندی مجوزها
+
+| گروه | کلیدهای مجوز |
+|------|---------------|
+| مراسم | `ceremonies.view/create/edit/delete/assignments.manage/tasks.manage/payments.manage` |
+| پرسنل | `employees.view/create/edit/delete/tasks.manage` |
+| مالی | `payments.view/create/edit/delete` |
+| پلن‌ها | `plans.view/create/edit/delete` |
+| گزارشات | `reports.view/export` |
+| داشبورد | `dashboard.view/stats` |
+| تنظیمات | `settings.view/edit` · `role.manage_system` |
+
+### قوانین مسیریابی (middleware)
+
+- `/admin` — فقط `admin`، `accountant` یا کاربران با `isSystem: true`
+- `/employee` — هر کاربر احراز هویت‌شده
+- `/settings` — هر کاربر احراز هویت‌شده (نمایش محتوا بر اساس مجوز)
+
+### مدیریت دسترسی در کد
+
+```ts
+// سرور-ساید (API routes)
+import { hasGlobalPermission, canManageSystemRole } from '@/lib/accessControl';
+
+// کلاینت‌ساید (components)
+import { usePermission } from '@/lib/usePermission';
+const { check, AccessDenied } = usePermission();
+
+// در کامپوننت:
+const handleAction = () => {
+  if (!check(['ceremonies.create'])) return; // نمایش مودال خودکار
+  // ادامه عملیات
+};
+```
+
+### اضافه کردن مجوزهای جدید
+
+1. کلید جدید را به `DEFAULT_PERMISSIONS` در `lib/permissions.ts` اضافه کنید
+2. در پنل تنظیمات → «افزودن مجوزهای پیش‌فرض» را بزنید تا مجوزها در DB ثبت شوند
+3. از طریق ماتریس مجوزها، مجوزها را به نقش‌ها اختصاص دهید
+
+---
+
+## �🚀 راه‌اندازی محلی
 
 ### پیش‌نیازها
 - Node.js >= 18

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import MainLayout from '@/components/layouts/MainLayout';
+import AccessDeniedModal from '@/components/ui/AccessDeniedModal';
+import { usePermission } from '@/lib/usePermission';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -248,6 +250,18 @@ function RolesTab({ roles, onRefresh, isAdmin = false }: RolesTabProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [deleteRole, setDeleteRole] = useState<Role | null>(null);
+  const { check, AccessDenied } = usePermission();
+
+  const handleEditClick = (role: Role) => {
+    if (role.isSystem && !isAdmin) {
+      check(
+        ['role.manage_system'],
+        'ویرایش نقش‌های سیستمی فقط توسط مدیران سیستم انجام می‌شود.'
+      );
+      return;
+    }
+    setEditRole(role);
+  };
 
   return (
     <div>
@@ -307,8 +321,7 @@ function RolesTab({ roles, onRefresh, isAdmin = false }: RolesTabProps) {
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2">
                     <button
-                      onClick={() => setEditRole(role)}
-                      disabled={role.isSystem && !isAdmin}
+                      onClick={() => handleEditClick(role)}
                       className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
                       title={role.isSystem && !isAdmin ? 'نقش سیستمی فقط توسط مدیران سیستم قابل ویرایش است' : 'ویرایش'}
                     >
@@ -352,6 +365,7 @@ function RolesTab({ roles, onRefresh, isAdmin = false }: RolesTabProps) {
           onDelete={onRefresh}
         />
       )}
+      {AccessDenied}
     </div>
   );
 }
@@ -369,6 +383,7 @@ interface MatrixTabProps {
 function MatrixTab({ roles, permissions, onRefresh, onSeedPermissions, seeding }: MatrixTabProps) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const { check, AccessDenied } = usePermission();
 
   const grouped = groupBy(permissions, (p) => p.group);
 
@@ -376,6 +391,7 @@ function MatrixTab({ roles, permissions, onRefresh, onSeedPermissions, seeding }
     role.permissions.some((p) => p.id === permId);
 
   const toggle = async (roleId: number, permissionId: number, enabled: boolean) => {
+    if (!check(['settings.edit'], 'برای ویرایش ماتریس مجوزها نیاز به مجوز «ویرایش تنظیمات» دارید.')) return;
     const key = `${roleId}-${permissionId}`;
     setToggling(key);
     try {
@@ -542,6 +558,7 @@ function MatrixTab({ roles, permissions, onRefresh, onSeedPermissions, seeding }
           </tbody>
         </table>
       </div>
+      {AccessDenied}
     </div>
   );
 }
