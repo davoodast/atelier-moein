@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw, Lock } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { canManageSystemRoles, hasAnyPermission } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
@@ -263,6 +263,7 @@ export default function EmployeesManagement() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [adminPwReset, setAdminPwReset] = useState({ pw: '', show: false, loading: false });
   const [formData, setFormData] = useState({
     username: '', email: '', phone: '', position: '',
     salary: 0, status: 'active', start_date: '', password: 'password123',
@@ -292,8 +293,28 @@ export default function EmployeesManagement() {
         await apiClient.post('/employees', formData);
         toast.success('کارمند جدید اضافه شد');
       }
-      fetchEmployees(); setShowForm(false); setEditingId(null); resetForm();
+      fetchEmployees(); setShowForm(false); setEditingId(null); resetForm(); resetAdminPwReset();
     } catch { toast.error('خطا در ذخیره اطلاعات'); }
+  };
+
+  const resetAdminPwReset = () => setAdminPwReset({ pw: '', show: false, loading: false });
+
+  const handleResetPassword = async () => {
+    if (!editingId) return;
+    if (!adminPwReset.pw || adminPwReset.pw.length < 4) {
+      toast.error('رمز عبور باید حداقل ۴ کاراکتر باشد');
+      return;
+    }
+    setAdminPwReset(p => ({ ...p, loading: true }));
+    try {
+      await apiClient.post(`/employees/${editingId}/reset-password`, { newPassword: adminPwReset.pw });
+      toast.success('رمز عبور کارمند تغییر یافت');
+      setAdminPwReset({ pw: '', show: false, loading: false });
+    } catch {
+      toast.error('خطا در تغییر رمز عبور');
+    } finally {
+      setAdminPwReset(p => ({ ...p, loading: false }));
+    }
   };
 
   const resetForm = () => setFormData({
@@ -412,12 +433,49 @@ export default function EmployeesManagement() {
               <button type="submit" className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
                 {editingId ? 'بروزرسانی' : 'ذخیره'}
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); resetAdminPwReset(); }}
                 className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
                 انصراف
               </button>
             </div>
           </form>
+
+          {/* Admin password reset — only for super_admin when editing */}
+          {editingId && user?.role === 'admin' && (
+            <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-3">
+                <KeyRound className="w-4 h-4 text-amber-500" />
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">تغییر رمز عبور کارمند</h4>
+              </div>
+              <div className="flex gap-2 items-center">
+                <div className="relative flex-1">
+                  <input
+                    type={adminPwReset.show ? 'text' : 'password'}
+                    value={adminPwReset.pw}
+                    onChange={e => setAdminPwReset(p => ({ ...p, pw: e.target.value }))}
+                    placeholder="رمز عبور جدید..."
+                    className="w-full px-3 py-2 pl-10 text-sm border border-amber-200 dark:border-amber-700/50 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAdminPwReset(p => ({ ...p, show: !p.show }))}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {adminPwReset.show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={adminPwReset.loading || !adminPwReset.pw}
+                  className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+                >
+                  {adminPwReset.loading ? 'در حال ذخیره...' : 'تغییر رمز'}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">فقط super_admin می‌تواند رمز کارمند را بدون نیاز به رمز قبلی تغییر دهد</p>
+            </div>
+          )}
         </div>
       )}
 
