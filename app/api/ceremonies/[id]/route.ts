@@ -56,6 +56,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const data = await request.json();
+  const newStatus = data.status || 'booked';
 
   const ceremony = await prisma.ceremony.update({
     where: { id: parseInt(id) },
@@ -68,12 +69,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       address: data.address || null,
       total_amount: data.total_amount != null ? parseFloat(data.total_amount) : null,
       advance_paid: data.advance_paid != null ? parseFloat(data.advance_paid) : 0,
-      status: data.status || 'booked',
+      status: newStatus,
       plan_id: data.plan_id !== undefined ? (data.plan_id ? parseInt(data.plan_id) : null) : undefined,
       plan_details: data.plan_details || data.notes || null,
       ceremony_mode: data.ceremony_mode || undefined,
     },
   });
+
+  // When ceremony is completed or cancelled, expire all active ceremony-role assignments
+  if (newStatus === 'completed' || newStatus === 'cancelled') {
+    await prisma.ceremonyAssignment.updateMany({
+      where: { ceremonyId: parseInt(id), status: 'active' },
+      data: { status: 'cancelled' },
+    });
+  }
 
   return NextResponse.json(ceremony);
 }

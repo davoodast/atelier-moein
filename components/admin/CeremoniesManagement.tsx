@@ -40,7 +40,10 @@ export default function CeremoniesManagement() {
   const canCreate  = hasAnyPermission(perms, ['ceremonies.create']);
   const canEdit    = hasAnyPermission(perms, ['ceremonies.edit']);
   const canDelete  = hasAnyPermission(perms, ['ceremonies.delete']);
-  const canAssign  = hasAnyPermission(perms, ['ceremonies.assignments.manage']);
+  // canAssign: true if user has global OR ceremony-level assignments.manage permission
+  // We check global here; ceremony-level is enforced server-side.
+  // isSystem users may have this via ceremony assignment — always show button for them.
+  const canAssign  = hasAnyPermission(perms, ['ceremonies.assignments.manage']) || (user?.isSystem ?? false);
 
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);

@@ -160,8 +160,11 @@ function PermDeniedTab() {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { check, AccessDenied } = usePermission();
+
+  // Always refresh permissions on mount so ceremony-level assignments are reflected
+  useEffect(() => { refreshUser(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canViewSettings = user?.role === 'admin' || user?.role === 'accountant' || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
   const canCalendarCreate = hasAnyPermission(user?.permissions, ['calendar.create', 'ceremonies.create']);
