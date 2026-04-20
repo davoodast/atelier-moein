@@ -31,22 +31,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchUser]);
 
   const login = async (username: string, password: string): Promise<void> => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    if (!res.ok) {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) {
+        let data: { error?: string } = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+        throw new Error(data.error || 'خطا در ورود');
+      }
       const data = await res.json();
-      throw new Error(data.error || 'خطا در ورود');
+      setUser(data.user);
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error('اتصال به سرور برقرار نشد');
     }
-    const data = await res.json();
-    setUser(data.user);
   };
 
   const logout = async (): Promise<void> => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!res.ok) throw new Error('خطا در خروج');
+      setUser(null);
+    } catch {
+      throw new Error('اتصال به سرور برقرار نشد');
+    }
   };
 
   return (

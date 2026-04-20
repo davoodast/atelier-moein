@@ -51,7 +51,7 @@ export async function getAuthUser(request: Request): Promise<JWTPayload | null> 
 }
 
 export function isAdmin(user: JWTPayload | null): boolean {
-  return user?.role === 'admin' || user?.isSystem === true;
+  return user?.role === 'admin' || user?.role === 'accountant';
 }
 
 export function isEmployee(user: JWTPayload | null): boolean {

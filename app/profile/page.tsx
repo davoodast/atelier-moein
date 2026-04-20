@@ -311,7 +311,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-white/75 mt-1">مدیریت وظایف مراسم، وظایف شخصی، مالی و پیام‌ها</p>
                 </div>
               </div>
-              {(user?.role === 'admin' || user?.role === 'accountant' || user?.isSystem) && (
+              {(user?.role === 'admin' || user?.role === 'accountant') && (
                 <button onClick={() => router.push('/admin')}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs bg-white/10 hover:bg-white/20 rounded-lg transition">
                   پنل ادمین

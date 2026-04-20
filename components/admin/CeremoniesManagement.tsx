@@ -328,7 +328,7 @@ export default function CeremoniesManagement() {
       </div>
 
       {taskCeremony && (
-        <TaskAssignment ceremonyId={taskCeremony.id} ceremonyLabel={taskCeremony.label} onClose={() => setTaskCeremony(null)} isAdmin={user?.role === 'admin' || user?.isSystem === true || (user?.permissions?.includes('role.manage_system') ?? false)} />
+        <TaskAssignment ceremonyId={taskCeremony.id} ceremonyLabel={taskCeremony.label} onClose={() => setTaskCeremony(null)} isAdmin={user?.role === 'admin' || user?.role === 'accountant' || (user?.permissions?.includes('role.manage_system') ?? false)} />
       )}
     </div>
   );

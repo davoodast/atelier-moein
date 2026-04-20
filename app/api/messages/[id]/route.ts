@@ -8,8 +8,8 @@ const UpdateMessageSchema = z.object({
   adminReply: z.string().max(1200).optional(),
 });
 
-function canManageInbox(role?: string, isSystem?: boolean): boolean {
-  return role === 'admin' || role === 'accountant' || isSystem === true;
+function canManageInbox(role?: string): boolean {
+  return role === 'admin' || role === 'accountant';
 }
 
 export async function PATCH(
@@ -19,7 +19,7 @@ export async function PATCH(
   const authUser = await getAuthUser(request);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!canManageInbox(authUser.role, authUser.isSystem)) {
+  if (!canManageInbox(authUser.role)) {
     return NextResponse.json({ error: 'دسترسی ندارید' }, { status: 403 });
   }
 

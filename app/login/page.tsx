@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      const isAdminUser = user.role === 'admin' || user.role === 'accountant' || user.isSystem === true;
+      const isAdminUser = user.role === 'admin' || user.role === 'accountant';
       router.push(isAdminUser ? '/admin' : '/profile');
     }
   }, [user, router]);

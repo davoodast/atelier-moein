@@ -250,7 +250,7 @@ function RecurringTaskPanel({ employee }: { employee: Employee }) {
 export default function EmployeesManagement() {
   const { user } = useAuth();
   const perms = user?.permissions ?? [];
-  const isAdmin = user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(perms);
+  const isAdmin = user?.role === 'admin' || user?.role === 'accountant' || canManageSystemRoles(perms);
 
   // Fine-grained permission flags
   const canCreate = hasAnyPermission(perms, ['employees.create']);

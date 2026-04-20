@@ -628,7 +628,7 @@ export default function EmployeeDashboardPage() {
           canManage={manageModal.canManage ?? true}
           canCreateTodo={manageModal.canCreateTodo ?? true}
           canApproveTodo={manageModal.canApproveTodo ?? true}
-          isAdmin={user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(user?.permissions)}
+          isAdmin={user?.role === 'admin' || user?.role === 'accountant' || canManageSystemRoles(user?.permissions)}
         />
       )}
       {AccessDenied}

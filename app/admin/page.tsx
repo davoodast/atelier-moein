@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const { check, AccessDenied } = usePermission();
 
-  const canViewSettings = user?.role === 'admin' || user?.isSystem === true || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
+  const canViewSettings = user?.role === 'admin' || user?.role === 'accountant' || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
   const canCalendarCreate = hasAnyPermission(user?.permissions, ['calendar.create', 'ceremonies.create']);
 
   // ── Permission helpers ──────────────────────────────────────────────────

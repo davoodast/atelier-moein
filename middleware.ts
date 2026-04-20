@@ -35,8 +35,8 @@ export async function middleware(request: NextRequest) {
       res.cookies.delete('token');
       return res;
     }
-    // Role check for /admin: only admin/accountant roles or isSystem users
-    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role) && !user.isSystem) {
+    // Role check for /admin: only admin/accountant roles
+    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role)) {
       return NextResponse.redirect(new URL('/profile', request.url));
     }
     // /employee, /settings, /profile: any authenticated user is allowed
@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/login' && token) {
     const user = await verifyJWT(token);
     if (user) {
-      const dest = ['admin', 'accountant'].includes(user.role) || user.isSystem ? '/admin' : '/profile';
+      const dest = ['admin', 'accountant'].includes(user.role) ? '/admin' : '/profile';
       return NextResponse.redirect(new URL(dest, request.url));
     }
   }

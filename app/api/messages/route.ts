@@ -7,15 +7,15 @@ const CreateMessageSchema = z.object({
   body: z.string().min(2, 'متن پیام خیلی کوتاه است').max(1200, 'پیام خیلی طولانی است'),
 });
 
-function canManageInbox(role?: string, isSystem?: boolean): boolean {
-  return role === 'admin' || role === 'accountant' || isSystem === true;
+function canManageInbox(role?: string): boolean {
+  return role === 'admin' || role === 'accountant';
 }
 
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const adminLike = canManageInbox(authUser.role, authUser.isSystem);
+  const adminLike = canManageInbox(authUser.role);
 
   if (adminLike) {
     const [messages, unreadCount] = await Promise.all([

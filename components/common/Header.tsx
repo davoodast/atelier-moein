@@ -5,6 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Sun, Moon, LogOut, Home, User } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Header() {
   const { isDark, toggleTheme } = useTheme();
@@ -16,13 +17,18 @@ export default function Header() {
 
   const handleHome = () => {
     if (!user) { router.push('/'); return; }
-    const isAdminUser = user.role === 'admin' || user.role === 'accountant' || user.isSystem === true;
+    const isAdminUser = user.role === 'admin' || user.role === 'accountant';
     router.push(isAdminUser ? '/admin' : '/profile');
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/login');
+    try {
+      await logout();
+      router.push('/login');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'خطا در خروج';
+      toast.error(msg);
+    }
   };
 
   return (
