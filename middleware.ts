@@ -19,10 +19,9 @@ export async function middleware(request: NextRequest) {
 
   logRequest(request);
 
-  // --- Protect /admin, /employee, /settings, /profile ---
+  // --- Protect /admin, /settings, /profile ---
   if (
     pathname.startsWith('/admin') ||
-    pathname.startsWith('/employee') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/profile')
   ) {
@@ -35,8 +34,8 @@ export async function middleware(request: NextRequest) {
       res.cookies.delete('token');
       return res;
     }
-    // Role check for /admin: only admin/accountant roles
-    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role)) {
+    // Role check for /admin: admin/accountant roles OR isSystem users
+    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role) && !user.isSystem) {
       return NextResponse.redirect(new URL('/profile', request.url));
     }
     // /employee, /settings, /profile: any authenticated user is allowed
@@ -47,7 +46,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/login' && token) {
     const user = await verifyJWT(token);
     if (user) {
-      const dest = ['admin', 'accountant'].includes(user.role) ? '/admin' : '/profile';
+      const dest = ['admin', 'accountant'].includes(user.role) || user.isSystem ? '/admin' : '/profile';
       return NextResponse.redirect(new URL(dest, request.url));
     }
   }
@@ -56,5 +55,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/employee/:path*', '/settings/:path*', '/profile/:path*', '/login'],
+  matcher: ['/admin/:path*', '/settings/:path*', '/profile/:path*', '/login'],
 };

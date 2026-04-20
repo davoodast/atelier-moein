@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Briefcase, ListTodo, CreditCard, Wallet, User,
-  CheckSquare, Square, Plus, Loader2, ChevronDown,
+  CheckSquare, Square, Plus, Loader2,
   CheckCircle2, AlertCircle, ArrowLeft, SendHorizontal, Mail, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -119,8 +119,6 @@ export default function ProfilePage() {
   // Password change
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
-  const [expandedCeremony, setExpandedCeremony] = useState<number | null>(null);
-
   // Ceremony tasks
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
@@ -400,9 +398,8 @@ export default function ProfilePage() {
                 </div>
               )}
               {tasks.map((t, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                  <div className="flex items-center justify-between p-4 cursor-pointer"
-                    onClick={() => setExpandedCeremony(expandedCeremony === t.ceremony_id ? null : t.ceremony_id)}>
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between p-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium dark:text-white text-sm">
@@ -420,23 +417,10 @@ export default function ProfilePage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 mr-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CER_STATUS_STYLE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {CER_STATUS_FA[t.status] ?? t.status}
-                      </span>
-                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedCeremony === t.ceremony_id ? 'rotate-180' : ''}`} />
-                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 mr-2 ${CER_STATUS_STYLE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {CER_STATUS_FA[t.status] ?? t.status}
+                    </span>
                   </div>
-                  {expandedCeremony === t.ceremony_id && (
-                    <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 flex gap-3">
-                      <button
-                        onClick={() => router.push(`/employee/ceremony/${t.ceremony_id}`)}
-                        className="flex items-center gap-1 text-xs text-purple-600 hover:underline dark:text-purple-400">
-                        جزئیات و تیم مراسم
-                        <ArrowLeft className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </>

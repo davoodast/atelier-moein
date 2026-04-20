@@ -16,6 +16,19 @@
         "/^Get-CimInstance Win32_Process -Filter \"Name='node\\.exe'\" \\| Select-Object ProcessId, CommandLine \\| Format-List$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^npx prisma db execute --stdin <<< \"SELECT u\\.id, u\\.username, r\\.name as role, r\\.isSystem, r\\.permissions FROM User u LEFT JOIN Role r ON u\\.role_id = r\\.id;\" 2>\\$null ; node -e \"const \\{ PrismaClient \\} = require\\('@prisma/client'\\); const p = new PrismaClient\\(\\); p\\.user\\.findMany\\(\\{ include: \\{ role: true \\} \\}\\)\\.then\\(users => \\{ users\\.forEach\\(u => console\\.log\\(u\\.username, '\\|', u\\.role\\?\\.name, '\\| isSystem:', u\\.role\\?\\.isSystem, '\\| perms:', u\\.role\\?\\.permissions\\)\\); p\\.\\$disconnect\\(\\); \\}\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e \"const \\{ PrismaClient \\} = require\\('@prisma/client'\\); const p = new PrismaClient\\(\\); p\\.user\\.findMany\\(\\{ include: \\{ role: true \\} \\}\\)\\.then\\(users => \\{ users\\.forEach\\(u => console\\.log\\(u\\.username, '\\|', u\\.role\\?\\.name, '\\| isSystem:', u\\.role\\?\\.isSystem, '\\| perms:', u\\.role\\?\\.permissions\\)\\); p\\.\\$disconnect\\(\\); \\}\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "EOF": true,
+        "/^node scripts/check-users\\.mjs$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
