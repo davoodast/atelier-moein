@@ -7,11 +7,18 @@ import { z } from 'zod';
 
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
-  if (!await hasPermission(authUser, 'settings.view')) {
+  const canViewSettings = await hasPermission(authUser, 'settings.view');
+  const canManageAssignments = await hasPermission(authUser, 'ceremonies.assignments.manage');
+
+  if (!canViewSettings && !canManageAssignments) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Users with only ceremony assignment access get non-system roles only
+  const where = canViewSettings ? {} : { isSystem: false };
+
   const roles = await prisma.role.findMany({
+    where,
     include: {
       rolePermissions: { include: { permission: true } },
       _count: { select: { users: true } },
