@@ -19,11 +19,12 @@ export async function middleware(request: NextRequest) {
 
   logRequest(request);
 
-  // --- Protect /admin, /employee, /settings ---
+  // --- Protect /admin, /employee, /settings, /profile ---
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/employee') ||
-    pathname.startsWith('/settings')
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/profile')
   ) {
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -36,9 +37,9 @@ export async function middleware(request: NextRequest) {
     }
     // Role check for /admin: only admin/accountant roles or isSystem users
     if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role) && !user.isSystem) {
-      return NextResponse.redirect(new URL('/employee', request.url));
+      return NextResponse.redirect(new URL('/profile', request.url));
     }
-    // /employee and /settings: any authenticated user is allowed
+    // /employee, /settings, /profile: any authenticated user is allowed
     // (access control is enforced at the page/API level)
   }
 
@@ -46,7 +47,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/login' && token) {
     const user = await verifyJWT(token);
     if (user) {
-      const dest = ['admin', 'accountant'].includes(user.role) || user.isSystem ? '/admin' : '/employee';
+      const dest = ['admin', 'accountant'].includes(user.role) || user.isSystem ? '/admin' : '/profile';
       return NextResponse.redirect(new URL(dest, request.url));
     }
   }
@@ -55,5 +56,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/employee/:path*', '/settings/:path*', '/login'],
+  matcher: ['/admin/:path*', '/employee/:path*', '/settings/:path*', '/profile/:path*', '/login'],
 };

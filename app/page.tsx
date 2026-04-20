@@ -23,7 +23,7 @@ export default function HomePage() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (user) router.push(user.role === 'admin' || user.role === 'accountant' ? '/admin' : '/employee');
+    if (user) router.push(user.role === 'admin' || user.role === 'accountant' ? '/admin' : '/profile');
   }, [user, router]);
 
   useEffect(() => {

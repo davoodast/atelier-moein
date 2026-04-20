@@ -17,7 +17,7 @@ export default function Header() {
   const handleHome = () => {
     if (!user) { router.push('/'); return; }
     const isAdminUser = user.role === 'admin' || user.role === 'accountant' || user.isSystem === true;
-    router.push(isAdminUser ? '/admin' : '/employee');
+    router.push(isAdminUser ? '/admin' : '/profile');
   };
 
   const handleLogout = async () => {

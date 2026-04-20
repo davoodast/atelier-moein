@@ -65,11 +65,13 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
     Promise.all([
       apiClient.get(`/ceremonies/${ceremonyId}`),
       apiClient.get('/settings/roles'),
-      apiClient.get('/employees'),
-    ]).then(([cerRes, rolesRes, empRes]) => {
+      apiClient.get('/users'),
+    ]).then(([cerRes, rolesRes, usersRes]) => {
       setAssignments(cerRes.data.assignments || []);
       setRoles(rolesRes.data);
-      setUsers(empRes.data.map((e: { user_id: number; username: string; phone: string | null }) => ({ id: e.user_id, username: e.username, email: null, phone: e.phone })));
+      setUsers(usersRes.data.map((u: { id: number; username: string; email: string | null; phone: string | null }) => ({
+        id: u.id, username: u.username, email: u.email, phone: u.phone,
+      })));
     }).catch(() => toast.error('خطا در بارگذاری')).finally(() => setLoading(false));
   }, [ceremonyId]);
 

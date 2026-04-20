@@ -89,14 +89,17 @@ export default function EmployeeCeremonyDetailPage() {
     }).finally(() => setLoading(false));
   }, [ceremonyId, router]);
 
-  // Load employees & roles only if user has manage permissions
+  // Load users & roles only if user has manage permissions
   useEffect(() => {
     if (can('ceremonies.assignments.manage') || can('ceremonies.tasks.manage')) {
       Promise.all([
-        apiClient.get('/employees').catch(() => ({ data: [] })),
+        apiClient.get('/users').catch(() => ({ data: [] })),
         apiClient.get('/settings/roles').catch(() => ({ data: [] })),
-      ]).then(([empRes, rolesRes]) => {
-        setEmployees(empRes.data);
+      ]).then(([usersRes, rolesRes]) => {
+        // Map users to Employee-compatible shape for the existing form
+        setEmployees(usersRes.data.map((u: { id: number; username: string; phone: string | null }) => ({
+          id: u.id, user_id: u.id, username: u.username, phone: u.phone, position: null,
+        })));
         setRoles(rolesRes.data);
       });
     }
