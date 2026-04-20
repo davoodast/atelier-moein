@@ -404,7 +404,7 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* Today's ceremony widget */}}
+              {/* Today's ceremony widget */}
               {todayCeremonies.length > 0 && (
                 <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
                   <div className="flex items-center gap-2 mb-3">
