@@ -121,7 +121,7 @@ model CeremonyAssignment {
   role       Role     @relation(fields: [roleId], references: [id])
   todos      CeremonyTodo[]
 
-  @@unique([ceremonyId, userId])
+  @@unique([ceremonyId, userId, roleId])
   @@map("ceremony_assignments")
 }
 

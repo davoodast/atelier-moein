@@ -76,11 +76,11 @@ export async function POST(
     }
   }
 
-  const existing = await prisma.ceremonyAssignment.findUnique({
-    where: { ceremonyId_userId: { ceremonyId, userId } },
+  const existing = await prisma.ceremonyAssignment.findFirst({
+    where: { ceremonyId, userId, roleId },
   });
   if (existing) {
-    return NextResponse.json({ error: 'این کاربر قبلاً به این مراسم تخصیص یافته است' }, { status: 409 });
+    return NextResponse.json({ error: 'این کاربر با همین نقش قبلاً به این مراسم تخصیص یافته است' }, { status: 409 });
   }
 
   const assignment = await prisma.ceremonyAssignment.create({

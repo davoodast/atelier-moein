@@ -14,15 +14,15 @@ export async function hasCeremonyPermission(
   if (!authUser) return false;
   if (authUser.role === 'admin') return true;
 
-  const assignment = await prisma.ceremonyAssignment.findFirst({
+  const assignments = await prisma.ceremonyAssignment.findMany({
     where: { userId: authUser.id as number, ceremonyId, status: 'active' },
     include: {
       role: { include: { rolePermissions: { include: { permission: true } } } },
     },
   });
 
-  if (!assignment) return false;
-  return assignment.role.rolePermissions.some((rp) => rp.permission.key === key);
+  if (!assignments.length) return false;
+  return assignments.some((a) => a.role.rolePermissions.some((rp) => rp.permission.key === key));
 }
 
 /**
