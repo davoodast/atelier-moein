@@ -1,25 +1,35 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle } from 'lucide-react';
+import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle, ChevronLeft, ListTodo, CheckCircle2, AlertCircle, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import JalaliCalendar, { type CeremonyEvent } from '@/components/ui/JalaliCalendar';
 import MainLayout from '@/components/layouts/MainLayout';
+import TaskAssignment from '@/components/admin/TaskAssignment';
+import { canManageSystemRoles } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { toJalaali } from 'jalaali-js';
 
 interface MyTask {
+  source?: 'task' | 'assignment';
   ceremony_id: number;
   date_jalali: string | null;
-  type: string;
+  type: string | null;
   groom_name: string | null;
   bride_name: string | null;
-  time: string;
-  address: string;
+  time: string | null;
+  address: string | null;
   status: string;
   role_description: string;
   attendance_hours: number;
+  role_name?: string | null;
+  base_fee?: number | null;
+  assignment_status?: string | null;
+  canManage?: boolean;
+  canCreateTodo?: boolean;
+  canApproveTodo?: boolean;
 }
 
 interface DailyTodo {
@@ -38,6 +48,19 @@ interface TaskLog {
   delete_reason: string | null; admin_approved: number | null; note: string | null;
 }
 
+interface CeremonyTodo {
+  id: number;
+  title: string;
+  description: string | null;
+  status: 'pending' | 'done' | 'approved' | 'rejected';
+  priority: number;
+  penaltyPoints: number;
+  adminNote: string | null;
+  createdAt: string;
+  ceremony: { id: number; type: string | null; date_jalali: string | null; groom_name: string | null; bride_name: string | null };
+  assignment: { role: { name: string } };
+}
+
 function todayJalali() {
   const now = new Date();
   const j = toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
@@ -49,9 +72,11 @@ const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چ�
 
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'todos' | 'calendar'>('overview');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'overview' | 'todos' | 'ceremony-todos' | 'calendar'>('overview');
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
+  const [manageModal, setManageModal] = useState<{ id: number; label: string; canManage?: boolean; canCreateTodo?: boolean; canApproveTodo?: boolean } | null>(null);
 
   // Todos tab state
   const today = todayJalali();
@@ -62,6 +87,10 @@ export default function EmployeeDashboardPage() {
   const [deleteReqId, setDeleteReqId] = useState<number | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [todosLoading, setTodosLoading] = useState(false);
+
+  // Ceremony todos tab state
+  const [ceremonyTodos, setCeremonyTodos] = useState<CeremonyTodo[]>([]);
+  const [ctLoading, setCtLoading] = useState(false);
 
   useEffect(() => {
     apiClient.get('/ceremonies/my-tasks/list').then(r => setTasks(r.data)).catch(() => {});
@@ -83,6 +112,27 @@ export default function EmployeeDashboardPage() {
   useEffect(() => {
     if (activeTab === 'todos') fetchTodos();
   }, [activeTab, fetchTodos]);
+
+  const fetchCeremonyTodos = useCallback(async () => {
+    setCtLoading(true);
+    try {
+      const res = await apiClient.get('/ceremonies/my-todos');
+      setCeremonyTodos(res.data);
+    } catch { /* ignore */ } finally { setCtLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'ceremony-todos') fetchCeremonyTodos();
+  }, [activeTab, fetchCeremonyTodos]);
+
+  const markCeremonyTodoDone = async (todo: CeremonyTodo) => {
+    if (todo.status !== 'pending') return;
+    try {
+      await apiClient.patch(`/ceremonies/${todo.ceremony.id}/todos/${todo.id}`, { status: 'done' });
+      setCeremonyTodos(ts => ts.map(t => t.id === todo.id ? { ...t, status: 'done' } : t));
+      toast.success('وظیفه به عنوان انجام‌شده علامت‌گذاری شد');
+    } catch { toast.error('خطا در بروزرسانی'); }
+  };
 
   const addTodo = async () => {
     if (!newTodoTitle.trim()) return;
@@ -146,6 +196,7 @@ export default function EmployeeDashboardPage() {
   const TABS = [
     { k: 'overview', l: 'خلاصه', icon: LayoutDashboard },
     { k: 'todos', l: 'وظایف امروز', icon: CheckSquare },
+    { k: 'ceremony-todos', l: 'وظایف مراسم', icon: ListTodo },
     { k: 'calendar', l: 'تقویم', icon: CalendarDays },
   ] as const;
 
@@ -201,16 +252,55 @@ export default function EmployeeDashboardPage() {
                   )}
                   {tasks.map((t, i) => (
                     <div key={i} className="p-4 flex items-start gap-4">
-                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${t.status === 'completed' ? 'bg-green-500' : t.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-500'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium dark:text-white">{t.type} — {t.groom_name ?? '—'} و {t.bride_name ?? '—'}</p>
+                      <div
+                        className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${t.status === 'completed' ? 'bg-green-500' : t.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-500'}`}
+                      />
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => router.push(`/employee/ceremony/${t.ceremony_id}`)}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium dark:text-white">{t.type} — {t.groom_name ?? '—'} و {t.bride_name ?? '—'}</p>
+                          {t.source === 'assignment' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">نقش رسمی</span>
+                          )}
+                          {t.canManage && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">مدیر</span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.date_jalali} | ⏰ {t.time}</p>
-                        <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">نقش: {t.role_description}</p>
+                        <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+                          {t.source === 'assignment' ? `نقش: ${t.role_name}` : `وظیفه: ${t.role_description}`}
+                        </p>
+                        {t.base_fee != null && t.base_fee > 0 && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">دستمزد: {t.base_fee.toLocaleString('fa-IR')} تومان</p>
+                        )}
                         {t.attendance_hours > 0 && <p className="text-xs text-gray-400 mt-1">⌚ {t.attendance_hours} ساعت</p>}
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${t.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : t.status === 'in_progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'}`}>
-                        {t.status === 'completed' ? 'تکمیل' : t.status === 'in_progress' ? 'جاری' : 'رزرو'}
-                      </span>
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        <span className={`text-xs px-2 py-1 rounded-full ${t.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : t.status === 'in_progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'}`}>
+                          {t.status === 'completed' ? 'تکمیل' : t.status === 'in_progress' ? 'جاری' : 'رزرو'}
+                        </span>
+                        {t.canManage && (
+                          <button
+                            onClick={() => setManageModal({ id: t.ceremony_id, label: `${t.type} — ${t.groom_name ?? '—'} و ${t.bride_name ?? '—'}`, canManage: t.canManage, canCreateTodo: t.canCreateTodo, canApproveTodo: t.canApproveTodo })}
+                            className="text-xs px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center gap-1 transition-colors"
+                          >
+                            <Users className="w-3 h-3" />
+                            مدیریت تیم
+                          </button>
+                        )}
+                        {!t.canManage && (t.canCreateTodo || t.canApproveTodo) && (
+                          <button
+                            onClick={() => setManageModal({ id: t.ceremony_id, label: `${t.type} — ${t.groom_name ?? '—'} و ${t.bride_name ?? '—'}`, canManage: false, canCreateTodo: t.canCreateTodo, canApproveTodo: t.canApproveTodo })}
+                            className="text-xs px-2.5 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg flex items-center gap-1 transition-colors"
+                          >
+                            <ListTodo className="w-3 h-3" />
+                            وظایف
+                          </button>
+                        )}
+                        {!t.canManage && <ChevronLeft className="w-4 h-4 text-gray-300 dark:text-gray-600" />}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -361,6 +451,62 @@ export default function EmployeeDashboardPage() {
             </div>
           )}
 
+          {activeTab === 'ceremony-todos' && (
+            <div className="space-y-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">وظایف مراسم من</h2>
+              {ctLoading ? (
+                <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>
+              ) : ceremonyTodos.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center text-gray-400 shadow-sm">
+                  هیچ وظیفه‌ای برای مراسم‌های شما تعریف نشده
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ceremonyTodos.map(todo => (
+                    <div key={todo.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 flex items-start gap-3">
+                      <button
+                        onClick={() => markCeremonyTodoDone(todo)}
+                        disabled={todo.status !== 'pending'}
+                        className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${
+                          todo.status === 'pending' ? 'border-gray-300 hover:border-purple-500 dark:border-gray-500' :
+                          todo.status === 'done' ? 'border-blue-400 bg-blue-400' :
+                          todo.status === 'approved' ? 'border-green-500 bg-green-500' :
+                          'border-red-400 bg-red-400'
+                        }`}>
+                        {todo.status !== 'pending' && <CheckCircle2 className="w-3 h-3 text-white" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className={`text-sm font-medium dark:text-white ${todo.status !== 'pending' ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>{todo.title}</p>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${
+                            todo.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            todo.status === 'done' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                            todo.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          }`}>{todo.status === 'pending' ? 'در انتظار' : todo.status === 'done' ? 'انجام شد' : todo.status === 'approved' ? 'تایید شد' : 'رد شد'}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {todo.ceremony.type} — {todo.ceremony.groom_name ?? '—'} و {todo.ceremony.bride_name ?? '—'}
+                          {todo.ceremony.date_jalali ? ` | ${todo.ceremony.date_jalali}` : ''}
+                        </p>
+                        <p className="text-xs text-purple-500 dark:text-purple-400">{todo.assignment.role.name}</p>
+                        {todo.description && <p className="text-xs text-gray-400 mt-1">{todo.description}</p>}
+                        {todo.adminNote && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />{todo.adminNote}
+                          </p>
+                        )}
+                        {todo.penaltyPoints > 0 && (
+                          <p className="text-xs text-red-500 mt-1">امتیاز منفی: -{todo.penaltyPoints}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'calendar' && (
             <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">تقویم کاری من</h2>
@@ -396,6 +542,18 @@ export default function EmployeeDashboardPage() {
           )}
         </div>
       </div>
+
+      {manageModal && (
+        <TaskAssignment
+          ceremonyId={manageModal.id}
+          ceremonyLabel={manageModal.label}
+          onClose={() => setManageModal(null)}
+          canManage={manageModal.canManage ?? true}
+          canCreateTodo={manageModal.canCreateTodo ?? true}
+          canApproveTodo={manageModal.canApproveTodo ?? true}
+          isAdmin={user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(user?.permissions)}
+        />
+      )}
     </MainLayout>
   );
 }

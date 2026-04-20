@@ -6,9 +6,24 @@ export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // Admin sees all ceremonies; others see only ceremonies they're assigned to
+  if (isAdmin(authUser)) {
+    const ceremonies = await prisma.ceremony.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 100,
+    });
+    return NextResponse.json(ceremonies);
+  }
+
+  const assignments = await prisma.ceremonyAssignment.findMany({
+    where: { userId: authUser.id as number, status: 'active' },
+    select: { ceremonyId: true },
+  });
+  const ceremonyIds = assignments.map((a) => a.ceremonyId);
+
   const ceremonies = await prisma.ceremony.findMany({
+    where: { id: { in: ceremonyIds } },
     orderBy: { created_at: 'desc' },
-    take: 100,
   });
   return NextResponse.json(ceremonies);
 }

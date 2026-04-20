@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
+import { hasCeremonyPermission } from '@/lib/permissions';
 
 export async function PATCH(
   request: Request,
@@ -13,6 +14,9 @@ export async function PATCH(
   const ceremonyId = parseInt(id);
   const aId = parseInt(assignmentId);
   if (isNaN(ceremonyId) || isNaN(aId)) return NextResponse.json({ error: 'شناسه نامعتبر' }, { status: 400 });
+
+  const allowed = await hasCeremonyPermission(authUser, ceremonyId, 'ceremonies.assignments.manage');
+  if (!allowed) return NextResponse.json({ error: 'دسترسی ندارید' }, { status: 403 });
 
   const existing = await prisma.ceremonyAssignment.findFirst({
     where: { id: aId, ceremonyId },
@@ -49,6 +53,9 @@ export async function DELETE(
   const ceremonyId = parseInt(id);
   const aId = parseInt(assignmentId);
   if (isNaN(ceremonyId) || isNaN(aId)) return NextResponse.json({ error: 'شناسه نامعتبر' }, { status: 400 });
+
+  const allowed = await hasCeremonyPermission(authUser, ceremonyId, 'ceremonies.assignments.manage');
+  if (!allowed) return NextResponse.json({ error: 'دسترسی ندارید' }, { status: 403 });
 
   const existing = await prisma.ceremonyAssignment.findFirst({
     where: { id: aId, ceremonyId },

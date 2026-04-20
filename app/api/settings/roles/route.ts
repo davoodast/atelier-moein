@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
+import { canManageSystemRole } from '@/lib/accessControl';
 import { z } from 'zod';
 
 export async function GET(request: Request) {
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
       id: r.id,
       name: r.name,
       description: r.description,
+      isSystem: r.isSystem,
       created_at: r.created_at,
       userCount: r._count.users,
       permissions: r.rolePermissions.map((rp) => rp.permission),
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
 const CreateRoleSchema = z.object({
   name: z.string().min(2, 'نام نقش باید حداقل ۲ کاراکتر باشد').max(50),
   description: z.string().max(200).nullable().optional(),
+  isSystem: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -47,14 +50,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
   }
 
-  const { name, description } = parsed.data;
+  const { name, description, isSystem } = parsed.data;
+
+  // Only users with role.manage_system can create system roles
+  if (isSystem) {
+    const canSys = await canManageSystemRole(authUser.id as number);
+    if (!canSys) {
+      return NextResponse.json({ error: 'فقط مدیران سیستم می‌توانند نقش سیستمی بسازند' }, { status: 403 });
+    }
+  }
+
   const exists = await prisma.role.findUnique({ where: { name } });
   if (exists) {
     return NextResponse.json({ error: 'نقشی با این نام وجود دارد' }, { status: 409 });
   }
 
   const role = await prisma.role.create({
-    data: { name, description: description ?? null },
+    data: { name, description: description ?? null, isSystem: isSystem ?? false },
   });
 
   return NextResponse.json(role, { status: 201 });

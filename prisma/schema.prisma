@@ -11,6 +11,7 @@ model Role {
   id              Int              @id @default(autoincrement())
   name            String           @unique
   description     String?
+  isSystem        Boolean          @default(false)
   created_at      DateTime         @default(now())
   users           User[]
   rolePermissions RolePermission[]
@@ -100,6 +101,7 @@ model Ceremony {
   payments      CeremonyPayment[]
   tasks         CeremonyTask[]
   assignments   CeremonyAssignment[]
+  todos         CeremonyTodo[]
 
   @@map("ceremonies")
 }
@@ -116,6 +118,7 @@ model CeremonyAssignment {
   ceremony   Ceremony @relation(fields: [ceremonyId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id])
   role       Role     @relation(fields: [roleId], references: [id])
+  todos      CeremonyTodo[]
 
   @@unique([ceremonyId, userId])
   @@map("ceremony_assignments")
@@ -258,4 +261,23 @@ model TaskLog {
   recurring_task    RecurringTask? @relation(fields: [recurring_task_id], references: [id], onDelete: SetNull)
 
   @@map("task_logs")
+}
+
+model CeremonyTodo {
+  id            Int      @id @default(autoincrement())
+  ceremonyId    Int
+  assignmentId  Int
+  title         String
+  description   String?
+  status        String   @default("pending") // pending, done, approved, rejected
+  priority      Int      @default(1)
+  penaltyPoints Int      @default(0)
+  adminNote     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ceremony    Ceremony           @relation(fields: [ceremonyId], references: [id], onDelete: Cascade)
+  assignment  CeremonyAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("ceremony_todos")
 }

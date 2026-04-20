@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
+import { canManageSystemRole } from '@/lib/accessControl';
 import { z } from 'zod';
-
-const PROTECTED_ROLES = ['admin', 'employee', 'accountant'];
 
 const UpdateRoleSchema = z.object({
   name: z.string().min(2, 'نام نقش باید حداقل ۲ کاراکتر باشد').max(50).optional(),
@@ -36,8 +35,11 @@ export async function PATCH(
   if (!existing) return NextResponse.json({ error: 'نقش یافت نشد' }, { status: 404 });
 
   if (name && name !== existing.name) {
-    if (PROTECTED_ROLES.includes(existing.name)) {
-      return NextResponse.json({ error: 'نقش‌های پایه سیستم قابل تغییر نیستند' }, { status: 400 });
+    if (existing.isSystem) {
+      const canSys = await canManageSystemRole(authUser.id as number);
+      if (!canSys) {
+        return NextResponse.json({ error: 'نقش‌های سیستمی فقط توسط مدیران سیستم قابل ویرایش هستند' }, { status: 403 });
+      }
     }
     const dup = await prisma.role.findFirst({ where: { name, NOT: { id } } });
     if (dup) return NextResponse.json({ error: 'نقشی با این نام وجود دارد' }, { status: 409 });
@@ -73,8 +75,11 @@ export async function DELETE(
   });
   if (!role) return NextResponse.json({ error: 'نقش یافت نشد' }, { status: 404 });
 
-  if (PROTECTED_ROLES.includes(role.name)) {
-    return NextResponse.json({ error: 'نقش‌های پایه سیستم قابل حذف نیستند' }, { status: 400 });
+  if (role.isSystem) {
+    const canSys = await canManageSystemRole(authUser.id as number);
+    if (!canSys) {
+      return NextResponse.json({ error: 'نقش‌های سیستمی فقط توسط مدیران سیستم قابل حذف هستند' }, { status: 403 });
+    }
   }
   if (role._count.users > 0) {
     return NextResponse.json(

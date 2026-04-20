@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { hasAnyPermission } from '@/lib/clientPermissions';
 import CeremoniesManagement from '@/components/admin/CeremoniesManagement';
 import EmployeesManagement from '@/components/admin/EmployeesManagement';
 import PlansManagement from '@/components/admin/PlansManagement';
@@ -138,6 +140,8 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canViewSettings = user?.role === 'admin' || user?.isSystem === true || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('dashboard');
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
@@ -212,14 +216,16 @@ export default function AdminDashboardPage() {
               </button>
             );
           })}
-          {/* Settings link — navigates to /settings/roles */}
-          <button
-            onClick={() => router.push('/settings/roles')}
-            className="mr-auto flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
-          >
-            <Settings className="w-4 h-4" />
-            <span>تنظیمات</span>
-          </button>
+          {/* Settings link — only show if user has settings.view permission */}
+          {canViewSettings && (
+            <button
+              onClick={() => router.push('/settings/roles')}
+              className="mr-auto flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              <Settings className="w-4 h-4" />
+              <span>تنظیمات</span>
+            </button>
+          )}
         </div>
 
         <div className="p-3 sm:p-6 lg:p-8">

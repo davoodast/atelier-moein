@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { canManageSystemRoles } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { toJalaali } from 'jalaali-js';
@@ -11,7 +13,10 @@ interface Employee {
   position: string | null; salary: number | null; status: string;
   start_date: string | null; bank_account: string | null;
   work_description: string | null; work_hours: number | null; attendance_hours: number | null;
+  role?: string | null; role_id?: number | null;
 }
+
+interface RoleOption { id: number; name: string; description: string | null; isSystem: boolean; }
 
 interface DailyTodo {
   id: number; employee_id: number; date_jalali: string; title: string; is_done: boolean;
@@ -243,7 +248,10 @@ function RecurringTaskPanel({ employee }: { employee: Employee }) {
 }
 
 export default function EmployeesManagement() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(user?.permissions);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -253,9 +261,13 @@ export default function EmployeesManagement() {
     username: '', email: '', phone: '', position: '',
     salary: 0, status: 'active', start_date: '', password: 'password123',
     work_description: '', work_hours: 8, attendance_hours: 0,
+    role_id: '' as string | number,
   });
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => {
+    fetchEmployees();
+    apiClient.get('/settings/roles').then(r => setRoles(r.data)).catch(() => {});
+  }, []);
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -282,6 +294,7 @@ export default function EmployeesManagement() {
     username: '', email: '', phone: '', position: '', salary: 0,
     status: 'active', start_date: '', password: 'password123',
     work_description: '', work_hours: 8, attendance_hours: 0,
+    role_id: '',
   });
 
   const handleDelete = async (id: number) => {
@@ -297,6 +310,7 @@ export default function EmployeesManagement() {
       start_date: emp.start_date ?? '', password: '',
       work_description: emp.work_description ?? '', work_hours: emp.work_hours ?? 8,
       attendance_hours: emp.attendance_hours ?? 0,
+      role_id: emp.role_id ?? '',
     });
     setEditingId(emp.id); setShowForm(true);
   };
@@ -360,6 +374,19 @@ export default function EmployeesManagement() {
                   <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
+              <div>
+                <label className={LABEL}>نقش سیستمی (دسترسی‌ها)</label>
+                <div className="relative">
+                  <select value={formData.role_id} onChange={e => set('role_id', e.target.value)} className={F + ' appearance-none'}>
+                    <option value="">نقش پیش‌فرض (employee)</option>
+                    {roles.filter(r => isAdmin || !r.isSystem).map(r => (
+                      <option key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">نقش و دسترسی‌های سراسری کارمند در پنل</p>
+              </div>
               {!editingId && (
                 <div><label className={LABEL}>رمز عبور</label>
                   <input type="password" value={formData.password} onChange={e => set('password', e.target.value)} className={F} required /></div>
@@ -389,7 +416,7 @@ export default function EmployeesManagement() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {['نام کاربری','سمت','تلفن','حقوق','ساعت کار','ساعت حضور','وضعیت','عملیات'].map((h) => (
+              {['نام کاربری','نقش','سمت','تلفن','حقوق','ساعت کار','ساعت حضور','وضعیت','عملیات'].map((h) => (
                 <th key={h} className="px-4 py-3 text-right text-xs font-medium dark:text-gray-300">{h}</th>
               ))}
             </tr>
@@ -400,6 +427,11 @@ export default function EmployeesManagement() {
               : filteredEmployees.map((emp) => (
                 <tr key={emp.id} className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-4 py-3 dark:text-gray-300 font-medium">{emp.username}</td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      {emp.role || 'employee'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 dark:text-gray-300">{emp.position || '—'}</td>
                   <td className="px-4 py-3 dark:text-gray-300">{emp.phone || '—'}</td>
                   <td className="px-4 py-3 dark:text-gray-300">{(emp.salary ?? 0).toLocaleString('fa-IR')} ت</td>
@@ -430,7 +462,12 @@ export default function EmployeesManagement() {
           <div key={emp.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="font-semibold dark:text-white">{emp.username}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold dark:text-white">{emp.username}</p>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                    {emp.role || 'employee'}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{emp.position || '—'}</p>
                 {emp.phone && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{emp.phone}</p>}
                 <div className="flex items-center gap-3 mt-1 flex-wrap">

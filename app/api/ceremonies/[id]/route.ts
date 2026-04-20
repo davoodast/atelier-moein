@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser, isAdmin } from '@/lib/auth';
+import { isAssignedToCeremony } from '@/lib/permissions';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authUser = await getAuthUser(request);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
+  const ceremonyId = parseInt(id);
+  if (isNaN(ceremonyId)) return NextResponse.json({ error: 'شناسه نامعتبر' }, { status: 400 });
+
+  const canAccess = await isAssignedToCeremony(authUser, ceremonyId);
+  if (!canAccess) return NextResponse.json({ error: 'دسترسی ندارید' }, { status: 403 });
+
   const ceremony = await prisma.ceremony.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: ceremonyId },
     include: {
       payments: true,
       tasks: {
@@ -17,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       assignments: {
         include: {
           user: { select: { id: true, username: true, email: true, phone: true } },
-          role: { select: { id: true, name: true, description: true } },
+          role: { select: { id: true, name: true, description: true, isSystem: true } },
         },
         orderBy: { assignedAt: 'asc' },
       },

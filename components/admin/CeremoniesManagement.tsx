@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Users, FileText, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import apiClient from '@/lib/apiClient';
 import JalaliDatePicker from '@/components/ui/JalaliDatePicker';
 import TaskAssignment from './TaskAssignment';
@@ -31,6 +32,7 @@ const INPUT = 'w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 da
 const LABEL = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
 
 export default function CeremoniesManagement() {
+  const { user } = useAuth();
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -294,7 +296,7 @@ export default function CeremoniesManagement() {
       </div>
 
       {taskCeremony && (
-        <TaskAssignment ceremonyId={taskCeremony.id} ceremonyLabel={taskCeremony.label} onClose={() => setTaskCeremony(null)} />
+        <TaskAssignment ceremonyId={taskCeremony.id} ceremonyLabel={taskCeremony.label} onClose={() => setTaskCeremony(null)} isAdmin={user?.role === 'admin' || user?.isSystem === true || (user?.permissions?.includes('role.manage_system') ?? false)} />
       )}
     </div>
   );

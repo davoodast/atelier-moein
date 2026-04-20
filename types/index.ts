@@ -3,8 +3,10 @@ export interface User {
   username: string;
   email: string | null;
   phone?: string | null;
-  role: 'admin' | 'accountant' | 'employee' | 'customer';
+  role: string;
+  isSystem?: boolean;
   bankAccount?: string | null;
+  permissions?: string[];
 }
 
 export interface AuthContextType {

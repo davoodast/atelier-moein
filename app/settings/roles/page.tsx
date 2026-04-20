@@ -34,13 +34,12 @@ interface Role {
   id: number;
   name: string;
   description: string | null;
+  isSystem: boolean;
   userCount: number;
   permissions: Permission[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const PROTECTED_ROLES = ['admin', 'employee', 'accountant'];
 
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   return arr.reduce<Record<string, T[]>>((acc, item) => {
@@ -56,11 +55,13 @@ interface RoleModalProps {
   initial?: Role | null;
   onClose: () => void;
   onSave: () => void;
+  isAdmin?: boolean;
 }
 
-function RoleModal({ initial, onClose, onSave }: RoleModalProps) {
+function RoleModal({ initial, onClose, onSave, isAdmin = false }: RoleModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
+  const [isSystem, setIsSystem] = useState(initial?.isSystem ?? false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,10 +73,12 @@ function RoleModal({ initial, onClose, onSave }: RoleModalProps) {
         ? `/api/settings/roles/${initial.id}`
         : '/api/settings/roles';
       const method = initial ? 'PATCH' : 'POST';
+      const body: Record<string, unknown> = { name: name.trim(), description: description.trim() || null };
+      if (!initial) body.isSystem = isSystem;
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || null }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'خطا');
@@ -116,11 +119,14 @@ function RoleModal({ initial, onClose, onSave }: RoleModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="مثال: accountant"
-              disabled={initial && PROTECTED_ROLES.includes(initial.name) ? true : false}
+              disabled={(initial?.isSystem ?? false) && !isAdmin}
               required
             />
-            {initial && PROTECTED_ROLES.includes(initial.name) && (
+            {initial?.isSystem && !isAdmin && (
               <p className="text-xs text-amber-600 mt-1">نقش‌های پایه سیستم قابل تغییر نام نیستند</p>
+            )}
+            {initial?.isSystem && isAdmin && (
+              <p className="text-xs text-blue-500 mt-1">این یک نقش سیستمی است — با احتیاط ویرایش کنید</p>
             )}
           </div>
           <div>
@@ -133,6 +139,20 @@ function RoleModal({ initial, onClose, onSave }: RoleModalProps) {
               placeholder="توضیح مختصری درباره این نقش..."
             />
           </div>
+          {isAdmin && !initial && (
+            <div className="flex items-center gap-2">
+              <input
+                id="isSystem-check"
+                type="checkbox"
+                checked={isSystem}
+                onChange={(e) => setIsSystem(e.target.checked)}
+                className="w-4 h-4 rounded accent-purple-600"
+              />
+              <label htmlFor="isSystem-check" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                نقش سیستمی
+              </label>
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <button
               type="submit"
@@ -221,9 +241,10 @@ function DeleteConfirm({ role, onClose, onDelete }: DeleteConfirmProps) {
 interface RolesTabProps {
   roles: Role[];
   onRefresh: () => void;
+  isAdmin?: boolean;
 }
 
-function RolesTab({ roles, onRefresh }: RolesTabProps) {
+function RolesTab({ roles, onRefresh, isAdmin = false }: RolesTabProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [deleteRole, setDeleteRole] = useState<Role | null>(null);
@@ -262,7 +283,7 @@ function RolesTab({ roles, onRefresh }: RolesTabProps) {
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
                     <span className="font-medium text-gray-900 dark:text-white">{role.name}</span>
-                    {PROTECTED_ROLES.includes(role.name) && (
+                    {role.isSystem && (
                       <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded">
                         سیستمی
                       </span>
@@ -287,16 +308,17 @@ function RolesTab({ roles, onRefresh }: RolesTabProps) {
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => setEditRole(role)}
-                      className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 transition"
-                      title="ویرایش"
+                      disabled={role.isSystem && !isAdmin}
+                      className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      title={role.isSystem && !isAdmin ? 'نقش سیستمی فقط توسط مدیران سیستم قابل ویرایش است' : 'ویرایش'}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setDeleteRole(role)}
-                      disabled={PROTECTED_ROLES.includes(role.name)}
+                      disabled={role.isSystem}
                       className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                      title={PROTECTED_ROLES.includes(role.name) ? 'نقش سیستمی قابل حذف نیست' : 'حذف'}
+                      title={role.isSystem ? 'نقش سیستمی قابل حذف نیست' : 'حذف'}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -320,6 +342,7 @@ function RolesTab({ roles, onRefresh }: RolesTabProps) {
           initial={editRole}
           onClose={() => { setShowCreate(false); setEditRole(null); }}
           onSave={onRefresh}
+          isAdmin={isAdmin}
         />
       )}
       {deleteRole && (
@@ -705,7 +728,11 @@ export default function RolesSettingsPage() {
 
           <div className="p-5">
             {tab === 'roles' ? (
-              <RolesTab roles={roles} onRefresh={fetchData} />
+              <RolesTab
+                roles={roles}
+                onRefresh={fetchData}
+                isAdmin={user?.role === 'admin' || user?.isSystem === true || (user?.permissions?.includes('role.manage_system') ?? false)}
+              />
             ) : (
               <MatrixTab
                 roles={roles}

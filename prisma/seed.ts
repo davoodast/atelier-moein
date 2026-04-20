@@ -9,18 +9,18 @@ async function main() {
   // Create roles
   const adminRole = await prisma.role.upsert({
     where: { name: 'admin' },
-    update: {},
-    create: { name: 'admin', description: 'مدیر سیستم' },
+    update: { isSystem: true },
+    create: { name: 'admin', description: 'مدیر سیستم', isSystem: true },
   });
   const accountantRole = await prisma.role.upsert({
     where: { name: 'accountant' },
-    update: {},
-    create: { name: 'accountant', description: 'حسابدار' },
+    update: { isSystem: true },
+    create: { name: 'accountant', description: 'حسابدار', isSystem: true },
   });
   await prisma.role.upsert({
     where: { name: 'employee' },
-    update: {},
-    create: { name: 'employee', description: 'کارمند' },
+    update: { isSystem: true },
+    create: { name: 'employee', description: 'کارمند', isSystem: true },
   });
 
   console.log('✅ Roles created');

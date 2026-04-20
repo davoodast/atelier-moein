@@ -26,6 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     status: employee.status,
     start_date: employee.start_date,
     role: employee.user?.role?.name || 'employee',
+    role_id: employee.user?.role_id ?? null,
   });
 }
 
@@ -52,13 +53,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     },
   });
 
-  if (data.email !== undefined || data.phone !== undefined || data.bank_account !== undefined) {
+  if (data.email !== undefined || data.phone !== undefined || data.bank_account !== undefined || data.role_id !== undefined) {
+    let resolvedRoleId: number | undefined = undefined;
+    if (data.role_id !== undefined) {
+      resolvedRoleId = data.role_id ? parseInt(data.role_id) : undefined;
+    }
     await prisma.user.update({
       where: { id: employee.user_id },
       data: {
         email: data.email ?? undefined,
         phone: data.phone ?? undefined,
         bank_account: data.bank_account ?? undefined,
+        role_id: resolvedRoleId,
       },
     });
   }

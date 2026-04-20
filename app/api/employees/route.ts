@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     work_hours: e.work_hours,
     attendance_hours: e.attendance_hours,
     role: e.user?.role?.name || 'employee',
+    role_id: e.user?.role_id ?? null,
   }));
 
   return NextResponse.json(result);

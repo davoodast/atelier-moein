@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { signJWT } from '@/lib/auth';
+import { getEffectivePermissions } from '@/lib/permissions';
 import bcrypt from 'bcryptjs';
 import { mkdirSync, appendFileSync } from 'fs';
 
@@ -43,10 +44,13 @@ export async function POST(request: Request) {
     }
 
     const roleName = user.role?.name || 'employee';
+    const isSystem = user.role?.isSystem ?? false;
+    const permissions = await getEffectivePermissions(user.id, roleName);
     const token = await signJWT({
       id: user.id,
       username: user.username,
       role: roleName,
+      isSystem,
     });
 
     writeLog(`LOGIN OK    user="${username}" role=${roleName} IP:${ip} UA:${ua}`);
@@ -57,7 +61,9 @@ export async function POST(request: Request) {
       email: user.email,
       phone: user.phone,
       role: roleName,
+      isSystem,
       bank_account: user.bank_account,
+      permissions,
     };
 
     const response = NextResponse.json({ user: responseData });

@@ -34,22 +34,19 @@ export async function middleware(request: NextRequest) {
       res.cookies.delete('token');
       return res;
     }
-    // Role check for /admin
-    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role)) {
+    // Role check for /admin: only admin/accountant roles or isSystem users
+    if (pathname.startsWith('/admin') && !['admin', 'accountant'].includes(user.role) && !user.isSystem) {
       return NextResponse.redirect(new URL('/employee', request.url));
     }
-    // Role check for /employee
-    if (pathname.startsWith('/employee') && !['admin', 'employee', 'accountant'].includes(user.role)) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    // /settings: must be authenticated (API routes do permission check)
+    // /employee and /settings: any authenticated user is allowed
+    // (access control is enforced at the page/API level)
   }
 
   // --- Redirect logged-in users away from /login ---
   if (pathname === '/login' && token) {
     const user = await verifyJWT(token);
     if (user) {
-      const dest = ['admin', 'accountant'].includes(user.role) ? '/admin' : '/employee';
+      const dest = ['admin', 'accountant'].includes(user.role) || user.isSystem ? '/admin' : '/employee';
       return NextResponse.redirect(new URL(dest, request.url));
     }
   }

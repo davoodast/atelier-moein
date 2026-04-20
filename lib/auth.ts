@@ -4,6 +4,8 @@ export interface JWTPayload {
   id: number;
   username: string;
   role: string;
+  /** true when the user's role has isSystem=true in the DB */
+  isSystem?: boolean;
 }
 
 const getSecret = () =>
@@ -49,7 +51,7 @@ export async function getAuthUser(request: Request): Promise<JWTPayload | null> 
 }
 
 export function isAdmin(user: JWTPayload | null): boolean {
-  return ['admin', 'accountant'].includes(user?.role ?? '');
+  return user?.role === 'admin' || user?.isSystem === true;
 }
 
 export function isEmployee(user: JWTPayload | null): boolean {
