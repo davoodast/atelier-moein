@@ -30,6 +30,7 @@ export interface CeremonyEvent {
   address: string | null;
   status: string;
   tasks?: { role_description: string | null; username: string; attendance_hours?: number | null }[];
+  assignments?: { username: string; roleName: string; baseFee?: number | null }[];
 }
 
 interface Props {

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Briefcase, ListTodo, CreditCard, Wallet, User,
   CheckSquare, Square, Plus, Loader2, ChevronDown,
-  CheckCircle2, AlertCircle, ArrowLeft, SendHorizontal, Mail,
+  CheckCircle2, AlertCircle, ArrowLeft, SendHorizontal, Mail, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -113,8 +113,12 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  type Tab = 'tasks' | 'ceremony-todos' | 'daily-todos' | 'payroll' | 'advances' | 'inbox';
+  type Tab = 'tasks' | 'ceremony-todos' | 'daily-todos' | 'payroll' | 'advances' | 'inbox' | 'password';
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
+
+  // Password change
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
   const [expandedCeremony, setExpandedCeremony] = useState<number | null>(null);
 
   // Ceremony tasks
@@ -282,6 +286,27 @@ export default function ProfilePage() {
     }
   };
 
+  const submitPasswordChange = async () => {
+    if (!pwForm.current || !pwForm.next || !pwForm.confirm) {
+      toast.error('همه فیلدها الزامی است'); return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      toast.error('رمز جدید و تکرار آن یکسان نیست'); return;
+    }
+    if (pwForm.next.length < 6) {
+      toast.error('رمز جدید باید حداقل ۶ کاراکتر باشد'); return;
+    }
+    setPwLoading(true);
+    try {
+      await apiClient.post('/auth/change-password', { currentPassword: pwForm.current, newPassword: pwForm.next });
+      setPwForm({ current: '', next: '', confirm: '' });
+      toast.success('رمز عبور با موفقیت تغییر یافت');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'خطا در تغییر رمز');
+    } finally { setPwLoading(false); }
+  };
+
   const TABS = [
     { k: 'tasks' as Tab,          l: 'مراسم من',       icon: Briefcase },
     { k: 'ceremony-todos' as Tab, l: 'وظایف مراسم',    icon: ListTodo },
@@ -289,6 +314,7 @@ export default function ProfilePage() {
     { k: 'payroll' as Tab,        l: 'فیش حقوقی',      icon: CreditCard },
     { k: 'advances' as Tab,       l: 'درخواست‌ها',     icon: Wallet },
     { k: 'inbox' as Tab,          l: 'صندوق پیام',     icon: Mail },
+    { k: 'password' as Tab,       l: 'تغییر رمز',       icon: KeyRound },
   ] as const;
 
   const overdueCeremonyTodos = ceremonyTodos.filter((t) => t.isOverdue).length;
@@ -311,7 +337,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-white/75 mt-1">مدیریت وظایف مراسم، وظایف شخصی، مالی و پیام‌ها</p>
                 </div>
               </div>
-              {(user?.role === 'admin' || user?.role === 'accountant') && (
+              {(user?.role === 'admin' || user?.role === 'accountant' || user?.isSystem === true) && (
                 <button onClick={() => router.push('/admin')}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs bg-white/10 hover:bg-white/20 rounded-lg transition">
                   پنل ادمین
@@ -426,7 +452,7 @@ export default function ProfilePage() {
                   وظیفه‌ای تعریف نشده
                 </div>
               )}
-              {ceremonyTodos.map(todo => (
+              {ceremonyTodos.filter(t => t.status === 'pending').map(todo => (
                 <div key={todo.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -656,6 +682,59 @@ export default function ProfilePage() {
                   <p className="text-[11px] text-gray-400 mt-2">{new Date(m.createdAt).toLocaleString('fa-IR')}</p>
                 </div>
               ))}
+            </>
+          )}
+
+          {/* ── تغییر رمز عبور ─────────────────────────────────────────────── */}
+          {activeTab === 'password' && (
+            <>
+              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">تغییر رمز عبور</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 space-y-4 max-w-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <KeyRound className="w-5 h-5 text-purple-500" />
+                  <p className="text-sm font-medium dark:text-white">برای امنیت بیشتر رمز عبور خود را تغییر دهید</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">رمز فعلی *</label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={pwForm.current}
+                    onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                    className={INPUT}
+                    placeholder="رمز فعلی خود را وارد کنید"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">رمز جدید *</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={pwForm.next}
+                    onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                    className={INPUT}
+                    placeholder="حداقل ۶ کاراکتر"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">تکرار رمز جدید *</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={pwForm.confirm}
+                    onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                    className={INPUT}
+                    placeholder="رمز جدید را دوباره وارد کنید"
+                  />
+                </div>
+                <button
+                  onClick={submitPasswordChange}
+                  disabled={pwLoading}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium transition">
+                  {pwLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  {pwLoading ? 'در حال تغییر...' : 'تغییر رمز عبور'}
+                </button>
+              </div>
             </>
           )}
 

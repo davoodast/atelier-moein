@@ -82,11 +82,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const employee = await prisma.employee.findUnique({ where: { id: parseInt(id) } });
   if (!employee) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Use transaction: delete employee first (references user), then delete user
-  await prisma.$transaction([
-    prisma.employee.delete({ where: { id: parseInt(id) } }),
-    prisma.user.delete({ where: { id: employee.user_id } }),
-  ]);
+  // Use interactive transaction to handle FK constraints:
+  // CeremonyAssignment has no cascade on user, so we must delete them first.
+  await prisma.$transaction(async (tx) => {
+    // 1. Delete ceremony assignments tied to this user (no cascade)
+    await tx.ceremonyAssignment.deleteMany({ where: { userId: employee.user_id } });
+    // 2. Delete inbox messages (no cascade)
+    await tx.inboxMessage.deleteMany({ where: { senderUserId: employee.user_id } });
+    // 3. Delete employee (cascades: payroll, advances, daily_todos, recurring_tasks, task_logs)
+    await tx.employee.delete({ where: { id: parseInt(id) } });
+    // 4. Delete user
+    await tx.user.delete({ where: { id: employee.user_id } });
+  });
 
   return NextResponse.json({ message: 'Deleted' });
 }

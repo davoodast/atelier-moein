@@ -23,7 +23,11 @@ export default function HomePage() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (user) router.push(user.role === 'admin' || user.role === 'accountant' ? '/admin' : '/profile');
+    if (user) {
+      // isSystem کاربران با رول سیستمی هم باید به پنل ادمین بروند
+      const goToAdmin = user.role === 'admin' || user.role === 'accountant' || user.isSystem === true;
+      router.push(goToAdmin ? '/admin' : '/profile');
+    }
   }, [user, router]);
 
   useEffect(() => {

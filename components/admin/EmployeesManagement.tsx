@@ -389,7 +389,7 @@ export default function EmployeesManagement() {
                 <div className="relative">
                   <select value={formData.role_id} onChange={e => set('role_id', e.target.value)} className={F + ' appearance-none'}>
                     <option value="">نقش پیش‌فرض (employee)</option>
-                    {roles.filter(r => isAdmin || !r.isSystem).map(r => (
+                    {roles.filter(r => r.isSystem).map(r => (
                       <option key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
                     ))}
                   </select>

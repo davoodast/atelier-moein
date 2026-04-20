@@ -645,11 +645,16 @@ export default function AdminDashboardPage() {
                   <JalaliCalendar
                     events={calEvents}
                     onDayClick={async (d, evts) => {
-                      // Fetch tasks for each ceremony
+                      // Fetch tasks AND assignments for each ceremony on this day
                       const detailed = await Promise.all(evts.map(async (e) => {
                         try {
                           const r = await apiClient.get(`/ceremonies/${e.id}`);
-                          return { ...e, tasks: r.data.tasks || [] };
+                          const assignments = (r.data.assignments || []).map((a: { user: { username: string }; role: { name: string }; baseFee: number | null }) => ({
+                            username: a.user.username,
+                            roleName: a.role.name,
+                            baseFee: a.baseFee,
+                          }));
+                          return { ...e, tasks: r.data.tasks || [], assignments };
                         } catch { return e; }
                       }));
                       setSelectedDay({ date: d, events: detailed });
@@ -677,7 +682,7 @@ export default function AdminDashboardPage() {
                           </div>
                           {e.time && <p className="text-xs text-gray-500 dark:text-gray-400">⏰ {e.time}</p>}
                           {e.address && <p className="text-xs text-gray-500 dark:text-gray-400">📍 {e.address}</p>}
-                          {/* Employee tasks */}
+                          {/* Employee tasks (legacy) */}
                           {e.tasks && e.tasks.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
                               <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">عوامل برگزاری:</p>
@@ -688,6 +693,24 @@ export default function AdminDashboardPage() {
                                     <span className="font-medium dark:text-gray-300">{t.username}</span>
                                     {t.role_description && <span className="text-gray-400 dark:text-gray-500">— {t.role_description}</span>}
                                     {(t.attendance_hours ?? 0) > 0 && <span className="text-gray-400">({t.attendance_hours}h)</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* New assignment-based cast */}
+                          {e.assignments && e.assignments.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">کست مراسم:</p>
+                              <div className="space-y-1">
+                                {e.assignments.map((a, ai) => (
+                                  <div key={ai} className="flex items-center gap-2 text-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                                    <span className="font-medium dark:text-gray-300">{a.username}</span>
+                                    <span className="text-gray-400 dark:text-gray-500">— {a.roleName}</span>
+                                    {a.baseFee != null && a.baseFee > 0 && (
+                                      <span className="text-green-600 dark:text-green-400">{a.baseFee.toLocaleString('fa-IR')} ت</span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
