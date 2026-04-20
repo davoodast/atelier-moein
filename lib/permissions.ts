@@ -82,7 +82,8 @@ export async function getEffectivePermissions(
   userId: number,
   roleName: string
 ): Promise<string[]> {
-  if (roleName === 'admin') return ['*'];
+  // admin and accountant always get full access
+  if (roleName === 'admin' || roleName === 'accountant') return ['*'];
 
   const permKeys = new Set<string>();
 

@@ -10,6 +10,9 @@ import AccessDeniedModal from '@/components/ui/AccessDeniedModal';
  * - `check(keys, message?)` — call before a guarded action; if user lacks
  *   the permission, shows the AccessDeniedModal and returns false.
  * - `AccessDenied` — a React element (or null) to render in your JSX.
+ *
+ * NOTE: Empty keys array means "no permission required" → always returns true.
+ * Admin/accountant roles have ["*"] permission which grants all access.
  */
 export function usePermission() {
   const { user } = useAuth();
@@ -17,9 +20,10 @@ export function usePermission() {
 
   const check = useCallback(
     (requiredKeys: string[], message?: string): boolean => {
+      // No permission required
+      if (requiredKeys.length === 0) return true;
       const perms = user?.permissions ?? [];
-      const isSystem = user?.isSystem === true;
-      if (isSystem || hasAnyPermission(perms, requiredKeys)) return true;
+      if (hasAnyPermission(perms, requiredKeys)) return true;
       setDenied(message ?? null);
       return false;
     },

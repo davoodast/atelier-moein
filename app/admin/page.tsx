@@ -1,10 +1,11 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings } from 'lucide-react';
+import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings, Lock, ShieldX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { hasAnyPermission } from '@/lib/clientPermissions';
+import { usePermission } from '@/lib/usePermission';
 import CeremoniesManagement from '@/components/admin/CeremoniesManagement';
 import EmployeesManagement from '@/components/admin/EmployeesManagement';
 import PlansManagement from '@/components/admin/PlansManagement';
@@ -138,11 +139,55 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
   );
 }
 
+function PermDeniedTab() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-4" dir="rtl">
+      <ShieldX className="w-16 h-16 text-gray-200 dark:text-gray-700" />
+      <p className="text-base font-semibold text-gray-400 dark:text-gray-500">شما مجوز دسترسی به این بخش را ندارید</p>
+      <p className="text-xs text-gray-400 dark:text-gray-600">برای دریافت دسترسی با مدیر سیستم تماس بگیرید</p>
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { check, AccessDenied } = usePermission();
+
   const canViewSettings = user?.role === 'admin' || user?.isSystem === true || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('dashboard');
+
+  // ── Permission helpers ──────────────────────────────────────────────────
+  const TAB_PERMISSIONS: Record<string, string[]> = {
+    dashboard:  ['dashboard.view'],
+    ceremonies: ['ceremonies.view'],
+    employees:  ['employees.view'],
+    calendar:   ['ceremonies.view'],
+    plans:      ['plans.view'],
+  };
+
+  const canAccess = (tabKey: string) => {
+    const keys = TAB_PERMISSIONS[tabKey] ?? [];
+    if (keys.length === 0) return true;
+    return hasAnyPermission(user?.permissions, keys);
+  };
+
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('ceremonies');
+
+  // Auto-switch to first permitted tab when permissions load
+  useEffect(() => {
+    if (!user?.permissions) return;
+    const tabOrder = ['ceremonies', 'calendar', 'dashboard', 'employees', 'plans'] as const;
+    if (!canAccess(activeTab)) {
+      const first = tabOrder.find(k => canAccess(k));
+      if (first) setActiveTab(first);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.permissions]);
+
+  const handleTabClick = (k: typeof activeTab) => {
+    if (!check(TAB_PERMISSIONS[k] ?? [], 'شما مجوز دسترسی به این بخش را ندارید.')) return;
+    setActiveTab(k);
+  };
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
   const [quickReserveDate, setQuickReserveDate] = useState<string | null>(null);
@@ -208,11 +253,19 @@ export default function AdminDashboardPage() {
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-1 sm:px-8 flex gap-0 overflow-x-auto scrollbar-hide">
           {TABS.map(t => {
             const TabIcon = t.icon;
+            const accessible = canAccess(t.k);
             return (
-              <button key={t.k} onClick={() => setActiveTab(t.k)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === t.k ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>
+              <button key={t.k} onClick={() => handleTabClick(t.k)}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeTab === t.k
+                    ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                    : accessible
+                    ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
+                }`}>
                 <TabIcon className="w-4 h-4" />
                 <span>{t.l}</span>
+                {!accessible && <Lock className="w-3 h-3 opacity-60" />}
               </button>
             );
           })}
@@ -230,6 +283,7 @@ export default function AdminDashboardPage() {
 
         <div className="p-3 sm:p-6 lg:p-8">
           {activeTab === 'dashboard' && (
+            canAccess('dashboard') ? (
             <div className="space-y-5 sm:space-y-8">
               <div><h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">داشبورد مدیریت</h1></div>
 
@@ -317,13 +371,15 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+            ) : <PermDeniedTab />
           )}
 
-          {activeTab === 'ceremonies' && <CeremoniesManagement />}
-          {activeTab === 'employees' && <EmployeesManagement />}
-          {activeTab === 'plans' && <PlansManagement />}
+          {activeTab === 'ceremonies' && (canAccess('ceremonies') ? <CeremoniesManagement /> : <PermDeniedTab />)}
+          {activeTab === 'employees' && (canAccess('employees') ? <EmployeesManagement /> : <PermDeniedTab />)}
+          {activeTab === 'plans' && (canAccess('plans') ? <PlansManagement /> : <PermDeniedTab />)}
 
           {activeTab === 'calendar' && (
+            canAccess('calendar') ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">تقویم مراسم‌ها</h2>
@@ -395,6 +451,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+            ) : <PermDeniedTab />
           )}
         </div>
       </div>
@@ -407,6 +464,7 @@ export default function AdminDashboardPage() {
           onSuccess={() => { fetchCeremonies(); setQuickReserveDate(null); }}
         />
       )}
+      {AccessDenied}
     </MainLayout>
   );
 }

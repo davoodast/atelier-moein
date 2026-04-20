@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle, ChevronLeft, ListTodo, CheckCircle2, AlertCircle, Users } from 'lucide-react';
+import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle, ChevronLeft, ListTodo, CheckCircle2, AlertCircle, Users, Lock, ShieldX } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import JalaliCalendar, { type CeremonyEvent } from '@/components/ui/JalaliCalendar';
 import MainLayout from '@/components/layouts/MainLayout';
 import TaskAssignment from '@/components/admin/TaskAssignment';
-import { canManageSystemRoles } from '@/lib/clientPermissions';
+import { canManageSystemRoles, hasAnyPermission } from '@/lib/clientPermissions';
+import { usePermission } from '@/lib/usePermission';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { toJalaali } from 'jalaali-js';
@@ -193,6 +194,34 @@ export default function EmployeeDashboardPage() {
   const missedLogs = taskLogs.filter(l => !l.is_done && !l.delete_requested).length;
   const points = doneLogs - missedLogs;
 
+  // ── Permission helpers ──────────────────────────────────────────────────
+  const { check, AccessDenied } = usePermission();
+
+  const TAB_PERMISSIONS: Record<string, string[]> = {
+    overview: [],
+    todos: [],
+    'ceremony-todos': ['ceremonies.view'],
+    calendar: ['ceremonies.view'],
+  };
+
+  const canAccess = (tabKey: string) => {
+    const keys = TAB_PERMISSIONS[tabKey] ?? [];
+    if (keys.length === 0) return true;
+    return hasAnyPermission(user?.permissions, keys);
+  };
+
+  // Auto-switch to first permitted tab on permission load
+  useEffect(() => {
+    if (!user?.permissions) return;
+    // overview and todos are always accessible, no need to auto-switch
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.permissions]);
+
+  const handleTabClick = (k: typeof activeTab) => {
+    if (!check(TAB_PERMISSIONS[k] ?? [], 'شما مجوز دسترسی به این بخش را ندارید.')) return;
+    setActiveTab(k);
+  };
+
   const TABS = [
     { k: 'overview', l: 'خلاصه', icon: LayoutDashboard },
     { k: 'todos', l: 'وظایف امروز', icon: CheckSquare },
@@ -206,11 +235,19 @@ export default function EmployeeDashboardPage() {
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-2 sm:px-8 flex gap-0 overflow-x-auto scrollbar-hide">
           {TABS.map(t => {
             const TabIcon = t.icon;
+            const accessible = canAccess(t.k);
             return (
-              <button key={t.k} onClick={() => setActiveTab(t.k)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === t.k ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>
+              <button key={t.k} onClick={() => handleTabClick(t.k)}
+                className={`flex items-center gap-1.5 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === t.k
+                    ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                    : accessible
+                    ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
+                }`}>
                 <TabIcon className="w-4 h-4" />
                 {t.l}
+                {!accessible && <Lock className="w-3 h-3 opacity-60" />}
               </button>
             );
           })}
@@ -452,6 +489,7 @@ export default function EmployeeDashboardPage() {
           )}
 
           {activeTab === 'ceremony-todos' && (
+            canAccess('ceremony-todos') ? (
             <div className="space-y-4">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">وظایف مراسم من</h2>
               {ctLoading ? (
@@ -505,9 +543,17 @@ export default function EmployeeDashboardPage() {
                 </div>
               )}
             </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 gap-4" dir="rtl">
+                <ShieldX className="w-16 h-16 text-gray-200 dark:text-gray-700" />
+                <p className="text-base font-semibold text-gray-400 dark:text-gray-500">شما مجوز دسترسی به این بخش را ندارید</p>
+                <p className="text-xs text-gray-400 dark:text-gray-600">برای دریافت دسترسی با مدیر سیستم تماس بگیرید</p>
+              </div>
+            )
           )}
 
           {activeTab === 'calendar' && (
+            canAccess('calendar') ? (
             <div className="space-y-4 sm:space-y-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">تقویم کاری من</h2>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -539,6 +585,13 @@ export default function EmployeeDashboardPage() {
                 </div>
               </div>
             </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 gap-4" dir="rtl">
+                <ShieldX className="w-16 h-16 text-gray-200 dark:text-gray-700" />
+                <p className="text-base font-semibold text-gray-400 dark:text-gray-500">شما مجوز دسترسی به این بخش را ندارید</p>
+                <p className="text-xs text-gray-400 dark:text-gray-600">برای دریافت دسترسی با مدیر سیستم تماس بگیرید</p>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -554,6 +607,7 @@ export default function EmployeeDashboardPage() {
           isAdmin={user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(user?.permissions)}
         />
       )}
+      {AccessDenied}
     </MainLayout>
   );
 }
