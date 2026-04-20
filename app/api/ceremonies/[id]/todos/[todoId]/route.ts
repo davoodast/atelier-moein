@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser, isAdmin } from '@/lib/auth';
 import { isAssignedToCeremony } from '@/lib/permissions';
+import { parseJalaliDateTime } from '@/lib/jalaliDateTime';
 import { z } from 'zod';
 
 const UpdateSchema = z.object({
@@ -29,7 +30,10 @@ export async function PATCH(
 
   const todo = await prisma.ceremonyTodo.findFirst({
     where: { id: tId, ceremonyId },
-    include: { assignment: { select: { userId: true } } },
+    include: {
+      assignment: { select: { userId: true } },
+      ceremony: { select: { date_jalali: true, time: true } },
+    },
   });
   if (!todo) return NextResponse.json({ error: 'تودو یافت نشد' }, { status: 404 });
 
@@ -53,12 +57,31 @@ export async function PATCH(
     if (adminNote !== undefined || penaltyPoints !== undefined) {
       return NextResponse.json({ error: 'فقط مدیر می‌تواند یادداشت و امتیاز تنظیم کند' }, { status: 403 });
     }
+
+    if (status === 'done') {
+      const deadline =
+        todo.dueAt ?? parseJalaliDateTime(todo.ceremony?.date_jalali, todo.ceremony?.time);
+      if (deadline && new Date() < deadline) {
+        return NextResponse.json(
+          { error: 'هنوز موعد انجام این مسئولیت نرسیده است' },
+          { status: 400 }
+        );
+      }
+    }
   }
+
+  const nextDoneAt =
+    status === 'done'
+      ? new Date()
+      : status === 'pending'
+      ? null
+      : undefined;
 
   const updated = await prisma.ceremonyTodo.update({
     where: { id: tId },
     data: {
       ...(status !== undefined && { status }),
+      ...(nextDoneAt !== undefined && { doneAt: nextDoneAt }),
       ...(admin && adminNote !== undefined && { adminNote }),
       ...(admin && penaltyPoints !== undefined && { penaltyPoints }),
     },

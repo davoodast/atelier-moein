@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser, isAdmin } from '@/lib/auth';
 import { isAssignedToCeremony, hasCeremonyPermission } from '@/lib/permissions';
+import { parseJalaliDateTime } from '@/lib/jalaliDateTime';
 import { z } from 'zod';
 
 const CreateTodoSchema = z.object({
@@ -9,6 +10,8 @@ const CreateTodoSchema = z.object({
   title: z.string().min(1, 'عنوان الزامی است').max(200),
   description: z.string().max(500).optional(),
   priority: z.number().int().min(1).max(5).optional(),
+  dueDateJalali: z.string().regex(/^\d{4}\/\d{2}\/\d{2}$/).optional(),
+  dueTime: z.string().regex(/^\d{1,2}:\d{2}$/).optional(),
 });
 
 export async function GET(
@@ -69,7 +72,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
   }
 
-  const { assignmentId, title, description, priority } = parsed.data;
+  const { assignmentId, title, description, priority, dueDateJalali, dueTime } = parsed.data;
 
   // Verify assignment belongs to this ceremony
   const assignment = await prisma.ceremonyAssignment.findFirst({
@@ -79,6 +82,16 @@ export async function POST(
     return NextResponse.json({ error: 'تخصیص یافت نشد یا متعلق به این مراسم نیست' }, { status: 404 });
   }
 
+  // Fallback deadline from ceremony date/time if explicit deadline not provided.
+  const ceremony = await prisma.ceremony.findUnique({
+    where: { id: ceremonyId },
+    select: { date_jalali: true, time: true },
+  });
+  const dueAt = parseJalaliDateTime(
+    dueDateJalali ?? ceremony?.date_jalali,
+    dueTime ?? ceremony?.time
+  );
+
   const todo = await prisma.ceremonyTodo.create({
     data: {
       ceremonyId,
@@ -86,6 +99,7 @@ export async function POST(
       title,
       description: description ?? null,
       priority: priority ?? 1,
+      dueAt,
     },
     include: {
       assignment: {

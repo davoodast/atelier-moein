@@ -14,6 +14,8 @@ interface Todo {
   title: string;
   description: string | null;
   status: 'pending' | 'done' | 'approved' | 'rejected';
+  dueAt: string | null;
+  doneAt: string | null;
   priority: number;
   penaltyPoints: number;
   adminNote: string | null;
@@ -54,8 +56,9 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todosLoading, setTodosLoading] = useState(false);
-  const [todoForm, setTodoForm] = useState({ assignmentId: '', title: '', description: '', priority: '1' });
+  const [todoForm, setTodoForm] = useState({ assignmentId: '', title: '', description: '', priority: '1', dueDateJalali: '', dueTime: '' });
   const [savingTodo, setSavingTodo] = useState(false);
+  const [defaultDue, setDefaultDue] = useState<{ date: string; time: string }>({ date: '', time: '' });
   const [approveModal, setApproveModal] = useState<{ todo: Todo; action: 'approve' | 'reject' } | null>(null);
   const [adminNote, setAdminNote] = useState('');
   const [penaltyPoints, setPenaltyPoints] = useState('0');
@@ -72,6 +75,10 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
       setUsers(usersRes.data.map((u: { id: number; username: string; email: string | null; phone: string | null }) => ({
         id: u.id, username: u.username, email: u.email, phone: u.phone,
       })));
+      const dueDate = typeof cerRes.data?.date_jalali === 'string' ? cerRes.data.date_jalali : '';
+      const dueTime = typeof cerRes.data?.time === 'string' ? cerRes.data.time.slice(0, 5) : '';
+      setDefaultDue({ date: dueDate, time: dueTime });
+      setTodoForm((f) => ({ ...f, dueDateJalali: dueDate, dueTime }));
     }).catch(() => toast.error('خطا در بارگذاری')).finally(() => setLoading(false));
   }, [ceremonyId]);
 
@@ -122,8 +129,17 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
         title: todoForm.title.trim(),
         description: todoForm.description.trim() || undefined,
         priority: parseInt(todoForm.priority) || 1,
+        dueDateJalali: todoForm.dueDateJalali.trim() || undefined,
+        dueTime: todoForm.dueTime.trim() || undefined,
       });
-      setTodoForm((f) => ({ ...f, title: '', description: '', priority: '1' }));
+      setTodoForm((f) => ({
+        ...f,
+        title: '',
+        description: '',
+        priority: '1',
+        dueDateJalali: defaultDue.date,
+        dueTime: defaultDue.time,
+      }));
       fetchTodos();
       toast.success('وظیفه اضافه شد');
     } catch (err: unknown) {
@@ -254,6 +270,11 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 {todo.assignment.user.username} — {todo.assignment.role.name}
                               </p>
+                              {todo.dueAt && (
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                  موعد: {new Date(todo.dueAt).toLocaleString('fa-IR')}
+                                </p>
+                              )}
                               {todo.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{todo.description}</p>}
                               {todo.adminNote && (
                                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
@@ -310,6 +331,22 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
                         <option value="4">اولویت فوری</option>
                         <option value="5">اولویت بحرانی</option>
                       </select>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          placeholder="موعد (جلالی) مثلا 1405/01/15"
+                          value={todoForm.dueDateJalali}
+                          onChange={(e) => setTodoForm((f) => ({ ...f, dueDateJalali: e.target.value }))}
+                          className={INPUT}
+                        />
+                        <input
+                          type="time"
+                          value={todoForm.dueTime}
+                          onChange={(e) => setTodoForm((f) => ({ ...f, dueTime: e.target.value }))}
+                          className={INPUT}
+                        />
+                      </div>
+                      <p className="text-[11px] text-gray-400">تا قبل از موعد، کاربر نمی‌تواند این وظیفه را «انجام شد» کند.</p>
                       <button onClick={addTodo} disabled={savingTodo || !todoForm.assignmentId || !todoForm.title.trim()}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium transition-colors">
                         {savingTodo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}

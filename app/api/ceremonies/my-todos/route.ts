@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
+import { parseJalaliDateTime } from '@/lib/jalaliDateTime';
 
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
@@ -29,5 +30,20 @@ export async function GET(request: Request) {
     orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
   });
 
-  return NextResponse.json(todos);
+  const now = new Date();
+  const enriched = todos.map((todo) => {
+    const deadline =
+      todo.dueAt ?? parseJalaliDateTime(todo.ceremony?.date_jalali, todo.ceremony?.time);
+    const isOverdue = todo.status === 'pending' && !!deadline && now > deadline;
+    const canMarkDone = todo.status !== 'pending' || !deadline || now >= deadline;
+
+    return {
+      ...todo,
+      deadlineAt: deadline ? deadline.toISOString() : null,
+      isOverdue,
+      canMarkDone,
+    };
+  });
+
+  return NextResponse.json(enriched);
 }

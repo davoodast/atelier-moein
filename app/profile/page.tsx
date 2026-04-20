@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Briefcase, ListTodo, CreditCard, Wallet, User,
   CheckSquare, Square, Plus, Loader2, ChevronDown,
-  CheckCircle2, AlertCircle, ArrowLeft,
+  CheckCircle2, AlertCircle, ArrowLeft, SendHorizontal, Mail,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,10 @@ interface CeremonyTodo {
   id: number;
   title: string;
   status: 'pending' | 'done' | 'approved' | 'rejected';
+  dueAt?: string | null;
+  deadlineAt?: string | null;
+  canMarkDone?: boolean;
+  isOverdue?: boolean;
   priority: number;
   adminNote: string | null;
   penaltyPoints: number;
@@ -61,6 +65,14 @@ interface Advance {
   reason: string | null;
   status: string;
   created_at: string;
+}
+
+interface InboxMessage {
+  id: number;
+  body: string;
+  status: 'unread' | 'read' | 'replied';
+  adminReply: string | null;
+  createdAt: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,7 +113,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  type Tab = 'tasks' | 'ceremony-todos' | 'daily-todos' | 'payroll' | 'advances';
+  type Tab = 'tasks' | 'ceremony-todos' | 'daily-todos' | 'payroll' | 'advances' | 'inbox';
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [expandedCeremony, setExpandedCeremony] = useState<number | null>(null);
 
@@ -112,6 +124,7 @@ export default function ProfilePage() {
   // Ceremony todos
   const [ceremonyTodos, setCeremonyTodos] = useState<CeremonyTodo[]>([]);
   const [ctLoading, setCtLoading] = useState(false);
+  const lastOverdueCountRef = useRef(0);
 
   // Daily todos
   const [dailyTodos, setDailyTodos] = useState<DailyTodo[]>([]);
@@ -130,6 +143,12 @@ export default function ProfilePage() {
   const [advanceForm, setAdvanceForm] = useState({ amount: '', date_jalali: todayJalali(), reason: '' });
   const [savingAdvance, setSavingAdvance] = useState(false);
 
+  // Inbox
+  const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+
   // Load ceremony tasks on mount
   useEffect(() => {
     setTasksLoading(true);
@@ -141,7 +160,16 @@ export default function ProfilePage() {
 
   const fetchCeremonyTodos = useCallback(async () => {
     setCtLoading(true);
-    try { const r = await apiClient.get('/ceremonies/my-todos'); setCeremonyTodos(r.data); }
+    try {
+      const r = await apiClient.get('/ceremonies/my-todos');
+      const list = Array.isArray(r.data) ? r.data : [];
+      setCeremonyTodos(list);
+      const overdue = list.filter((t: CeremonyTodo) => t.isOverdue).length;
+      if (overdue > 0 && overdue !== lastOverdueCountRef.current) {
+        toast.warning(`${overdue} مسئولیت شما هنوز تیک نخورده و از موعد گذشته است`);
+      }
+      lastOverdueCountRef.current = overdue;
+    }
     catch { } finally { setCtLoading(false); }
   }, []);
 
@@ -166,20 +194,45 @@ export default function ProfilePage() {
     catch { } finally { setAdvancesLoading(false); }
   }, []);
 
+  const fetchMessages = useCallback(async () => {
+    setMsgLoading(true);
+    try {
+      const r = await apiClient.get('/messages');
+      setMessages(r.data?.messages || []);
+    } catch {
+      setMessages([]);
+    } finally {
+      setMsgLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'ceremony-todos') fetchCeremonyTodos();
     else if (activeTab === 'daily-todos') fetchDailyTodos();
     else if (activeTab === 'payroll') fetchPayroll();
     else if (activeTab === 'advances') fetchAdvances();
-  }, [activeTab, fetchCeremonyTodos, fetchDailyTodos, fetchPayroll, fetchAdvances]);
+    else if (activeTab === 'inbox') fetchMessages();
+  }, [activeTab, fetchCeremonyTodos, fetchDailyTodos, fetchPayroll, fetchAdvances, fetchMessages]);
+
+  useEffect(() => {
+    fetchCeremonyTodos();
+    fetchMessages();
+  }, [fetchCeremonyTodos, fetchMessages]);
 
   const markCeremonyTodoDone = async (todo: CeremonyTodo) => {
     if (todo.status !== 'pending') return;
+    if (todo.canMarkDone === false) {
+      toast.error('هنوز زمان انجام این مسئولیت نرسیده است');
+      return;
+    }
     try {
       await apiClient.patch(`/ceremonies/${todo.ceremony.id}/todos/${todo.id}`, { status: 'done' });
       setCeremonyTodos(ts => ts.map(t => t.id === todo.id ? { ...t, status: 'done' as const } : t));
       toast.success('وظیفه انجام شد');
-    } catch { toast.error('خطا'); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'خطا');
+    }
   };
 
   const addDailyTodo = async () => {
@@ -214,60 +267,101 @@ export default function ProfilePage() {
     } finally { setSavingAdvance(false); }
   };
 
+  const submitMessage = async () => {
+    if (!newMessage.trim()) return;
+    setSendingMessage(true);
+    try {
+      await apiClient.post('/messages', { body: newMessage.trim() });
+      setNewMessage('');
+      toast.success('پیام شما ارسال شد');
+      fetchMessages();
+    } catch {
+      toast.error('خطا در ارسال پیام');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   const TABS = [
     { k: 'tasks' as Tab,          l: 'مراسم من',       icon: Briefcase },
     { k: 'ceremony-todos' as Tab, l: 'وظایف مراسم',    icon: ListTodo },
-    { k: 'daily-todos' as Tab,    l: 'وظایف روزانه',   icon: CheckSquare },
+    { k: 'daily-todos' as Tab,    l: 'وظایف من',       icon: CheckSquare },
     { k: 'payroll' as Tab,        l: 'فیش حقوقی',      icon: CreditCard },
     { k: 'advances' as Tab,       l: 'درخواست‌ها',     icon: Wallet },
+    { k: 'inbox' as Tab,          l: 'صندوق پیام',     icon: Mail },
   ] as const;
+
+  const overdueCeremonyTodos = ceremonyTodos.filter((t) => t.isOverdue).length;
+  const doneDailyTodos = dailyTodos.filter((t) => t.is_done).length;
 
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 
-        {/* Profile header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
+        {/* Hero */}
+        <div className="px-3 sm:px-6 pt-4 sm:pt-6">
+          <div className="max-w-5xl mx-auto rounded-2xl bg-gradient-to-l from-slate-900 via-indigo-900 to-slate-800 p-4 sm:p-6 text-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                  <User className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold">داشبورد شخصی {user?.username}</h1>
+                  <p className="text-xs text-white/75 mt-1">مدیریت وظایف مراسم، وظایف شخصی، مالی و پیام‌ها</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">{user?.username}</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role}</p>
+              {(user?.role === 'admin' || user?.role === 'accountant' || user?.isSystem) && (
+                <button onClick={() => router.push('/admin')}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-white/10 hover:bg-white/20 rounded-lg transition">
+                  پنل ادمین
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4">
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] text-white/70">مراسم فعال</p>
+                <p className="text-lg font-bold mt-1">{tasks.length}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] text-white/70">وظایف مراسم معوق</p>
+                <p className="text-lg font-bold mt-1">{overdueCeremonyTodos}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] text-white/70">وظایف من (انجام‌شده)</p>
+                <p className="text-lg font-bold mt-1">{doneDailyTodos}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] text-white/70">پیام‌های من</p>
+                <p className="text-lg font-bold mt-1">{messages.length}</p>
               </div>
             </div>
-            {(user?.role === 'admin' || user?.role === 'accountant' || user?.isSystem) && (
-              <button onClick={() => router.push('/admin')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition">
-                پنل ادمین
-                <ArrowLeft className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-1 sm:px-6 flex overflow-x-auto scrollbar-hide">
-          {TABS.map(t => {
-            const TabIcon = t.icon;
-            return (
-              <button key={t.k} onClick={() => setActiveTab(t.k)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === t.k
-                    ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}>
-                <TabIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden xs:inline">{t.l}</span>
-                <span className="xs:hidden">{t.l.split(' ')[0]}</span>
-              </button>
-            );
-          })}
+        <div className="px-3 sm:px-6 mt-3">
+          <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-2xl p-1.5 shadow-sm border border-gray-100 dark:border-gray-700 flex overflow-x-auto scrollbar-hide">
+            {TABS.map(t => {
+              const TabIcon = t.icon;
+              return (
+                <button key={t.k} onClick={() => setActiveTab(t.k)}
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl transition-colors whitespace-nowrap ${
+                    activeTab === t.k
+                      ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}>
+                  <TabIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>{t.l}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="p-3 sm:p-6 max-w-3xl mx-auto space-y-3">
+        <div className="p-3 sm:p-6 max-w-5xl mx-auto space-y-3">
 
           {/* ── مراسم من ─────────────────────────────────────────────────────── */}
           {activeTab === 'tasks' && (
@@ -357,13 +451,18 @@ export default function ProfilePage() {
                         </span>
                       )}
                       {todo.status === 'pending' && (
-                        <button onClick={() => markCeremonyTodoDone(todo)}
-                          className="flex items-center gap-1 text-[10px] text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 px-2 py-1 rounded-lg transition">
+                        <button onClick={() => markCeremonyTodoDone(todo)} disabled={todo.canMarkDone === false}
+                          className="flex items-center gap-1 text-[10px] text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 px-2 py-1 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed">
                           <CheckCircle2 className="w-3 h-3" />انجام شد
                         </button>
                       )}
                     </div>
                   </div>
+                  {todo.deadlineAt && (
+                    <p className={`mt-2 text-[11px] ${todo.isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
+                      موعد انجام: {new Date(todo.deadlineAt).toLocaleString('fa-IR')}
+                    </p>
+                  )}
                 </div>
               ))}
             </>
@@ -506,6 +605,55 @@ export default function ProfilePage() {
                       {ADV_STATUS_FA[a.status] ?? a.status}
                     </span>
                   </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── صندوق پیام ───────────────────────────────────────────────────── */}
+          {activeTab === 'inbox' && (
+            <>
+              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">صندوق پیام</h2>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">پیام کوتاه خود را برای مدیریت ارسال کنید.</p>
+                <textarea
+                  rows={4}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="متن پیام..."
+                  className={INPUT + ' resize-none'}
+                />
+                <button onClick={submitMessage} disabled={sendingMessage || !newMessage.trim()}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition">
+                  {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
+                  ارسال پیام
+                </button>
+              </div>
+
+              {msgLoading && <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>}
+
+              {!msgLoading && messages.length === 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center text-gray-400 text-sm shadow-sm">
+                  هنوز پیامی ارسال نشده
+                </div>
+              )}
+
+              {messages.map((m) => (
+                <div key={m.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{m.body}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${m.status === 'replied' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : m.status === 'read' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'}`}>
+                      {m.status === 'replied' ? 'پاسخ داده شد' : m.status === 'read' ? 'دیده شد' : 'جدید'}
+                    </span>
+                  </div>
+                  {m.adminReply && (
+                    <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+                      <p className="text-[11px] text-green-700 dark:text-green-300 mb-1">پاسخ مدیریت</p>
+                      <p className="text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap">{m.adminReply}</p>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-gray-400 mt-2">{new Date(m.createdAt).toLocaleString('fa-IR')}</p>
                 </div>
               ))}
             </>

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings, Lock, ShieldX, Menu, User, MessageSquare, ClipboardList } from 'lucide-react';
+import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings, ShieldX, Menu, User, MessageSquare, ClipboardList, SendHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { hasAnyPermission } from '@/lib/clientPermissions';
@@ -21,6 +21,15 @@ interface Ceremony {
   id: number; type: string; groom_name: string | null; bride_name: string | null;
   date_jalali: string | null; time: string; address: string;
   total_amount: number | null; advance_paid: number | null; status: string;
+}
+
+interface InboxMessage {
+  id: number;
+  body: string;
+  status: 'unread' | 'read' | 'replied';
+  adminReply: string | null;
+  createdAt: string;
+  sender: { id: number; username: string; phone: string | null; email: string | null };
 }
 
 // Quick Reserve Modal
@@ -160,6 +169,7 @@ export default function AdminDashboardPage() {
   // ── Permission helpers ──────────────────────────────────────────────────
   const TAB_PERMISSIONS: Record<string, string[]> = {
     dashboard:  ['dashboard.view'],
+    inbox:      [],
     ceremonies: ['ceremonies.view'],
     employees:  ['employees.view'],
     calendar:   ['ceremonies.view', 'calendar.view'],
@@ -172,13 +182,18 @@ export default function AdminDashboardPage() {
     return hasAnyPermission(user?.permissions, keys);
   };
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('ceremonies');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'inbox' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('ceremonies');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const [replyText, setReplyText] = useState<Record<number, string>>({});
+  const [replyingId, setReplyingId] = useState<number | null>(null);
 
   // Auto-switch to first permitted tab when permissions load
   useEffect(() => {
     if (!user?.permissions) return;
-    const tabOrder = ['ceremonies', 'calendar', 'dashboard', 'employees', 'plans'] as const;
+    const tabOrder = ['ceremonies', 'calendar', 'dashboard', 'inbox', 'employees', 'plans'] as const;
     if (!canAccess(activeTab)) {
       const first = tabOrder.find(k => canAccess(k));
       if (first) setActiveTab(first);
@@ -190,6 +205,49 @@ export default function AdminDashboardPage() {
     if (!check(TAB_PERMISSIONS[k] ?? [], 'شما مجوز دسترسی به این بخش را ندارید.')) return;
     setActiveTab(k);
   };
+
+  const fetchInbox = async () => {
+    setInboxLoading(true);
+    try {
+      const res = await apiClient.get('/messages');
+      setInboxMessages(res.data?.messages || []);
+      setInboxUnread(res.data?.unreadCount || 0);
+    } catch {
+      toast.error('خطا در بارگذاری صندوق پیام');
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  const markRead = async (id: number) => {
+    try {
+      await apiClient.patch(`/messages/${id}`, { status: 'read' });
+      fetchInbox();
+    } catch {
+      toast.error('خطا در علامت‌گذاری پیام');
+    }
+  };
+
+  const replyMessage = async (id: number) => {
+    const text = (replyText[id] || '').trim();
+    if (!text) return;
+    setReplyingId(id);
+    try {
+      await apiClient.patch(`/messages/${id}`, { adminReply: text });
+      setReplyText((m) => ({ ...m, [id]: '' }));
+      toast.success('پاسخ ارسال شد');
+      fetchInbox();
+    } catch {
+      toast.error('خطا در ارسال پاسخ');
+    } finally {
+      setReplyingId(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchInbox();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [selectedDay, setSelectedDay] = useState<{ date: string; events: CeremonyEvent[] } | null>(null);
   const [quickReserveDate, setQuickReserveDate] = useState<string | null>(null);
@@ -243,11 +301,19 @@ export default function AdminDashboardPage() {
 
   const TABS = [
     { k: 'dashboard', l: 'داشبورد', icon: LayoutDashboard },
+    { k: 'inbox', l: 'صندوق پیام', icon: MessageSquare },
     { k: 'ceremonies', l: 'مراسمات', icon: Calendar },
     { k: 'employees', l: 'کارمندان', icon: Users },
     { k: 'calendar', l: 'تقویم', icon: CalendarDays },
     { k: 'plans', l: 'پلن‌ها', icon: Package },
   ] as const;
+
+  const visibleTabs = TABS.filter((t) => canAccess(t.k));
+
+  useEffect(() => {
+    if (activeTab === 'inbox') fetchInbox();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   return (
     <MainLayout>
@@ -265,21 +331,21 @@ export default function AdminDashboardPage() {
 
           {/* Nav items */}
           <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-            {TABS.map(t => {
+            {visibleTabs.map(t => {
               const TabIcon = t.icon;
-              const accessible = canAccess(t.k);
               const active = activeTab === t.k;
               return (
                 <button key={t.k} onClick={() => handleTabClick(t.k)}
                   title={sidebarOpen ? undefined : t.l}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
-                    : accessible ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
-                    : 'text-gray-300 dark:text-gray-600'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
                   } ${sidebarOpen ? '' : 'justify-center'}`}>
                   <TabIcon className="w-5 h-5 flex-shrink-0" />
                   {sidebarOpen && <span className="flex-1 truncate text-right">{t.l}</span>}
-                  {sidebarOpen && !accessible && <Lock className="w-3.5 h-3.5 opacity-60 mr-auto" />}
+                  {t.k === 'inbox' && inboxUnread > 0 && sidebarOpen && (
+                    <span className="mr-auto text-[10px] bg-red-500 text-white rounded-full min-w-5 h-5 px-1 flex items-center justify-center">{inboxUnread}</span>
+                  )}
                 </button>
               );
             })}
@@ -294,10 +360,11 @@ export default function AdminDashboardPage() {
             </button>
 
             {/* Inbox */}
-            <button onClick={() => toast.info('صندوق پیام به زودی اضافه می‌شود')} title={sidebarOpen ? undefined : 'صندوق پیام'}
+            <button onClick={() => setActiveTab('inbox')} title={sidebarOpen ? undefined : 'صندوق پیام'}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-700 dark:hover:text-green-400 transition-all ${sidebarOpen ? '' : 'justify-center'}`}>
               <MessageSquare className="w-5 h-5 flex-shrink-0" />
               {sidebarOpen && <span className="flex-1 truncate text-right">صندوق پیام</span>}
+              {sidebarOpen && inboxUnread > 0 && <span className="mr-auto text-[10px] bg-red-500 text-white rounded-full min-w-5 h-5 px-1 flex items-center justify-center">{inboxUnread}</span>}
             </button>
 
             {/* My tasks */}
@@ -339,21 +406,20 @@ export default function AdminDashboardPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Mobile/tablet top tabs (hidden on lg+) */}
           <div className="lg:hidden sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-1 flex gap-0 overflow-x-auto scrollbar-hide">
-            {TABS.map(t => {
+            {visibleTabs.map(t => {
               const TabIcon = t.icon;
-              const accessible = canAccess(t.k);
               return (
                 <button key={t.k} onClick={() => handleTabClick(t.k)}
                   className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                     activeTab === t.k
                       ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-                      : accessible
-                      ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}>
                   <TabIcon className="w-4 h-4" />
                   <span>{t.l}</span>
-                  {!accessible && <Lock className="w-3 h-3 opacity-60" />}
+                  {t.k === 'inbox' && inboxUnread > 0 && (
+                    <span className="text-[10px] bg-red-500 text-white rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{inboxUnread}</span>
+                  )}
                 </button>
               );
             })}
@@ -381,12 +447,12 @@ export default function AdminDashboardPage() {
                   </div>
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">داشبورد شخصی</span>
                 </button>
-                <button onClick={() => toast.info('صندوق پیام به زودی اضافه می‌شود')}
+                <button onClick={() => setActiveTab('inbox')}
                   className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:shadow-md transition-all group">
                   <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/40 transition-colors">
                     <MessageSquare className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">صندوق پیام</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">صندوق پیام {inboxUnread > 0 ? `(${inboxUnread})` : ''}</span>
                 </button>
                 <button onClick={() => router.push('/profile')}
                   className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 hover:shadow-md transition-all group">
@@ -395,13 +461,15 @@ export default function AdminDashboardPage() {
                   </div>
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">وظایف من</span>
                 </button>
-                <button onClick={() => handleTabClick('calendar')}
-                  className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all group">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
-                    <CalendarDays className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">تقویم</span>
-                </button>
+                {canAccess('calendar') && (
+                  <button onClick={() => handleTabClick('calendar')}
+                    className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all group">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
+                      <CalendarDays className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">تقویم</span>
+                  </button>
+                )}
               </div>
 
               {/* Today's ceremony widget */}
@@ -489,6 +557,71 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             ) : <PermDeniedTab />
+          )}
+
+          {activeTab === 'inbox' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">صندوق پیام کارمندان</h2>
+                <button onClick={fetchInbox}
+                  className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                  بروزرسانی
+                </button>
+              </div>
+
+              {inboxLoading ? (
+                <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>
+              ) : inboxMessages.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center text-gray-400 shadow-sm">پیامی ثبت نشده</div>
+              ) : (
+                <div className="space-y-3">
+                  {inboxMessages.map((m) => (
+                    <div key={m.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{m.sender.username}</p>
+                            {m.sender.phone && <span className="text-[11px] text-gray-400">{m.sender.phone}</span>}
+                            {m.sender.email && <span className="text-[11px] text-gray-400">{m.sender.email}</span>}
+                          </div>
+                          <p className="text-sm text-gray-700 dark:text-gray-200 mt-2 whitespace-pre-wrap">{m.body}</p>
+                          <p className="text-[11px] text-gray-400 mt-1">{new Date(m.createdAt).toLocaleString('fa-IR')}</p>
+                        </div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${m.status === 'replied' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : m.status === 'read' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'}`}>
+                          {m.status === 'replied' ? 'پاسخ داده شد' : m.status === 'read' ? 'دیده شد' : 'جدید'}
+                        </span>
+                      </div>
+
+                      {m.adminReply && (
+                        <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+                          <p className="text-[11px] text-green-700 dark:text-green-300 mb-1">پاسخ شما</p>
+                          <p className="text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap">{m.adminReply}</p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                        <input
+                          type="text"
+                          value={replyText[m.id] || ''}
+                          onChange={(e) => setReplyText((s) => ({ ...s, [m.id]: e.target.value }))}
+                          placeholder="پاسخ مدیر..."
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                        />
+                        <button onClick={() => markRead(m.id)}
+                          className="px-3 py-2 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30">
+                          علامت دیده شد
+                        </button>
+                        <button onClick={() => replyMessage(m.id)} disabled={replyingId === m.id || !(replyText[m.id] || '').trim()}
+                          className="px-3 py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                          {replyingId === m.id ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <SendHorizontal className="w-3.5 h-3.5" />}
+                          ارسال پاسخ
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'ceremonies' && (canAccess('ceremonies') ? <CeremoniesManagement /> : <PermDeniedTab />)}

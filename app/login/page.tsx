@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Moon, Sun, AlertCircle, Home } from 'lucide-react';
+import { Moon, Sun, AlertCircle, Home, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, user } = useAuth();
@@ -25,11 +26,17 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const cleanUsername = username.trim();
+    if (!cleanUsername || !password) {
+      setError('نام کاربری و رمز عبور را کامل وارد کنید');
+      return;
+    }
     setIsLoading(true);
     try {
-      await login(username, password);
-    } catch (err: any) {
-      setError(err.message || 'خطا در ورود');
+      await login(cleanUsername, password);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'خطا در ورود';
+      setError(msg);
       setIsLoading(false);
     }
   };
@@ -104,13 +111,20 @@ export default function LoginPage() {
               <label className={`block text-sm font-light mb-3 transition-colors duration-300 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 رمز عبور
               </label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg font-light transition-all duration-300 ${
-                  isDark
-                    ? 'bg-white/5 border border-white/10 text-white focus:bg-white/10 focus:border-purple-accent/50'
-                    : 'bg-white border border-gray-200 text-gray-900 focus:bg-gray-50 focus:border-purple-600'
-                } focus:outline-none focus:ring-2 focus:ring-purple-accent/30`}
-                placeholder="رمز عبور" required />
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
+                  className={`w-full px-4 py-3 rounded-lg font-light transition-all duration-300 ${
+                    isDark
+                      ? 'bg-white/5 border border-white/10 text-white focus:bg-white/10 focus:border-purple-accent/50'
+                      : 'bg-white border border-gray-200 text-gray-900 focus:bg-gray-50 focus:border-purple-600'
+                  } focus:outline-none focus:ring-2 focus:ring-purple-accent/30`}
+                  placeholder="رمز عبور" required />
+                <button type="button" onClick={() => setShowPassword((s) => !s)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className={`mt-2 text-[11px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>حساس به فاصله ابتدای نام کاربری: ورود با نام کاربری trim انجام می‌شود.</p>
             </div>
 
             <button type="submit" disabled={isLoading}

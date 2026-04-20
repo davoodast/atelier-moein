@@ -56,6 +56,7 @@ model User {
   role         Role?     @relation(fields: [role_id], references: [id])
   employee     Employee?
   ceremonyAssignments CeremonyAssignment[]
+  inboxMessages InboxMessage[]
 
   @@map("users")
 }
@@ -270,6 +271,8 @@ model CeremonyTodo {
   title         String
   description   String?
   status        String   @default("pending") // pending, done, approved, rejected
+  dueAt         DateTime?
+  doneAt        DateTime?
   priority      Int      @default(1)
   penaltyPoints Int      @default(0)
   adminNote     String?
@@ -280,4 +283,19 @@ model CeremonyTodo {
   assignment  CeremonyAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@map("ceremony_todos")
+}
+
+model InboxMessage {
+  id           Int      @id @default(autoincrement())
+  senderUserId Int
+  body         String
+  status       String   @default("unread") // unread, read, replied
+  adminReply   String?
+  createdAt    DateTime @default(now())
+  readAt       DateTime?
+  repliedAt    DateTime?
+
+  sender User @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@map("inbox_messages")
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle, ChevronLeft, ListTodo, CheckCircle2, AlertCircle, Users, Lock, ShieldX } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Calendar, FileText, Clock, LayoutDashboard, CalendarDays, CheckSquare, Square, X, Plus, RefreshCw, ThumbsUp, ThumbsDown, AlertTriangle, ChevronLeft, ListTodo, CheckCircle2, AlertCircle, Users, ShieldX } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import JalaliCalendar, { type CeremonyEvent } from '@/components/ui/JalaliCalendar';
@@ -54,6 +54,10 @@ interface CeremonyTodo {
   title: string;
   description: string | null;
   status: 'pending' | 'done' | 'approved' | 'rejected';
+  dueAt?: string | null;
+  deadlineAt?: string | null;
+  canMarkDone?: boolean;
+  isOverdue?: boolean;
   priority: number;
   penaltyPoints: number;
   adminNote: string | null;
@@ -92,6 +96,7 @@ export default function EmployeeDashboardPage() {
   // Ceremony todos tab state
   const [ceremonyTodos, setCeremonyTodos] = useState<CeremonyTodo[]>([]);
   const [ctLoading, setCtLoading] = useState(false);
+  const lastOverdueCountRef = useRef(0);
 
   useEffect(() => {
     apiClient.get('/ceremonies/my-tasks/list').then(r => setTasks(r.data)).catch(() => {});
@@ -121,7 +126,13 @@ export default function EmployeeDashboardPage() {
     setCtLoading(true);
     try {
       const res = await apiClient.get('/ceremonies/my-todos');
-      setCeremonyTodos(res.data);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setCeremonyTodos(list);
+      const overdue = list.filter((t: CeremonyTodo) => t.isOverdue).length;
+      if (overdue > 0 && overdue !== lastOverdueCountRef.current) {
+        toast.warning(`${overdue} وظیفه مراسم از موعد گذشته و هنوز تیک نخورده`);
+      }
+      lastOverdueCountRef.current = overdue;
     } catch { /* ignore */ } finally { setCtLoading(false); }
   }, []);
 
@@ -131,11 +142,18 @@ export default function EmployeeDashboardPage() {
 
   const markCeremonyTodoDone = async (todo: CeremonyTodo) => {
     if (todo.status !== 'pending') return;
+    if (todo.canMarkDone === false) {
+      toast.error('هنوز موعد انجام این وظیفه نرسیده است');
+      return;
+    }
     try {
       await apiClient.patch(`/ceremonies/${todo.ceremony.id}/todos/${todo.id}`, { status: 'done' });
       setCeremonyTodos(ts => ts.map(t => t.id === todo.id ? { ...t, status: 'done' } : t));
       toast.success('وظیفه به عنوان انجام‌شده علامت‌گذاری شد');
-    } catch { toast.error('خطا در بروزرسانی'); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'خطا در بروزرسانی');
+    }
   };
 
   const addTodo = async () => {
@@ -232,25 +250,23 @@ export default function EmployeeDashboardPage() {
     { k: 'calendar', l: 'تقویم', icon: CalendarDays },
   ] as const;
 
+  const visibleTabs = TABS.filter((t) => canAccess(t.k));
+
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-2 sm:px-8 flex gap-0 overflow-x-auto scrollbar-hide">
-          {TABS.map(t => {
+          {visibleTabs.map(t => {
             const TabIcon = t.icon;
-            const accessible = canAccess(t.k);
             return (
               <button key={t.k} onClick={() => handleTabClick(t.k)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === t.k
                     ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-                    : accessible
-                    ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}>
                 <TabIcon className="w-4 h-4" />
                 {t.l}
-                {!accessible && <Lock className="w-3 h-3 opacity-60" />}
               </button>
             );
           })}
@@ -531,6 +547,11 @@ export default function EmployeeDashboardPage() {
                           {todo.ceremony.date_jalali ? ` | ${todo.ceremony.date_jalali}` : ''}
                         </p>
                         <p className="text-xs text-purple-500 dark:text-purple-400">{todo.assignment.role.name}</p>
+                        {todo.deadlineAt && (
+                          <p className={`text-[11px] mt-1 ${todo.isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
+                            موعد انجام: {new Date(todo.deadlineAt).toLocaleString('fa-IR')}
+                          </p>
+                        )}
                         {todo.description && <p className="text-xs text-gray-400 mt-1">{todo.description}</p>}
                         {todo.adminNote && (
                           <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
