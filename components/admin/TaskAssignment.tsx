@@ -220,7 +220,7 @@ export default function TaskAssignment({ ceremonyId, ceremonyLabel, onClose, can
                     </select>
                     <select value={assignForm.roleId} onChange={(e) => setAssignForm((f) => ({ ...f, roleId: e.target.value }))} className={INPUT}>
                       <option value="">انتخاب نقش...</option>
-                      {roles.filter((r) => isAdmin || !r.isSystem).map((r) => (
+                      {roles.filter((r) => !r.isSystem).map((r) => (
                         <option key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
                       ))}
                     </select>

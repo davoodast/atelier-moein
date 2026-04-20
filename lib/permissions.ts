@@ -140,6 +140,10 @@ export const DEFAULT_PERMISSIONS = [
   // ── داشبورد ──────────────────────────────────────────────────────────────
   { key: 'dashboard.view',                label_fa: 'مشاهده داشبورد',                 group: 'داشبورد' },
   { key: 'dashboard.stats',               label_fa: 'آمار و نمودار داشبورد',           group: 'داشبورد' },
+  // ── تقویم ────────────────────────────────────────────────────────────────
+  { key: 'calendar.view',                 label_fa: 'مشاهده تقویم',                   group: 'تقویم' },
+  { key: 'calendar.create',              label_fa: 'ثبت رزرو از تقویم',               group: 'تقویم' },
+  { key: 'calendar.edit',                label_fa: 'ویرایش رویداد تقویم',              group: 'تقویم' },
   // ── تنظیمات ──────────────────────────────────────────────────────────────
   { key: 'settings.view',                 label_fa: 'مشاهده تنظیمات',                 group: 'تنظیمات' },
   { key: 'settings.edit',                 label_fa: 'ویرایش تنظیمات و نقش‌ها',        group: 'تنظیمات' },

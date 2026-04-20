@@ -297,7 +297,7 @@ export default function EmployeeCeremonyDetailPage() {
                     </select>
                     <select value={assignForm.roleId} onChange={(e) => setAssignForm((f) => ({ ...f, roleId: e.target.value }))} className={INPUT}>
                       <option value="">انتخاب نقش...</option>
-                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>)}
+                      {roles.filter((r) => !(r as { isSystem?: boolean }).isSystem).map((r) => <option key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>)}
                     </select>
                     <input
                       type="text"

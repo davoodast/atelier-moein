@@ -14,6 +14,12 @@ export default function Header() {
 
   useEffect(() => setMounted(true), []);
 
+  const handleHome = () => {
+    if (!user) { router.push('/'); return; }
+    const isAdminUser = user.role === 'admin' || user.role === 'accountant' || user.isSystem === true;
+    router.push(isAdminUser ? '/admin' : '/employee');
+  };
+
   const handleLogout = async () => {
     await logout();
     router.push('/login');
@@ -34,7 +40,7 @@ export default function Header() {
             </span>
           )}
           <button
-            onClick={() => router.push('/')}
+            onClick={handleHome}
             title="صفحه اصلی"
             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
           >

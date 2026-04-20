@@ -155,13 +155,14 @@ export default function AdminDashboardPage() {
   const { check, AccessDenied } = usePermission();
 
   const canViewSettings = user?.role === 'admin' || user?.isSystem === true || hasAnyPermission(user?.permissions, ['settings.view', 'settings.edit']);
+  const canCalendarCreate = hasAnyPermission(user?.permissions, ['calendar.create', 'ceremonies.create']);
 
   // ── Permission helpers ──────────────────────────────────────────────────
   const TAB_PERMISSIONS: Record<string, string[]> = {
     dashboard:  ['dashboard.view'],
     ceremonies: ['ceremonies.view'],
     employees:  ['employees.view'],
-    calendar:   ['ceremonies.view'],
+    calendar:   ['ceremonies.view', 'calendar.view'],
     plans:      ['plans.view'],
   };
 
@@ -383,10 +384,12 @@ export default function AdminDashboardPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">تقویم مراسم‌ها</h2>
-                <button onClick={() => setQuickReserveDate('')}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium">
-                  <Plus className="w-4 h-4" />رزرو سریع
-                </button>
+                {canCalendarCreate && (
+                  <button onClick={() => setQuickReserveDate('')}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium">
+                    <Plus className="w-4 h-4" />رزرو سریع
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
@@ -402,7 +405,7 @@ export default function AdminDashboardPage() {
                       }));
                       setSelectedDay({ date: d, events: detailed });
                     }}
-                    onQuickReserve={(d) => setQuickReserveDate(d)}
+                    onQuickReserve={canCalendarCreate ? (d) => setQuickReserveDate(d) : undefined}
                   />
                 </div>
                 <div className="lg:max-h-[500px] lg:overflow-y-auto">
@@ -410,10 +413,12 @@ export default function AdminDashboardPage() {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 space-y-3 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
                         <h3 className="font-bold text-gray-900 dark:text-white text-sm">{selectedDay.date}</h3>
-                        <button onClick={() => setQuickReserveDate(selectedDay.date)}
-                          className="flex items-center gap-1 text-xs text-purple-500 hover:underline">
-                          <Plus className="w-3.5 h-3.5" />افزودن مراسم
-                        </button>
+                        {canCalendarCreate && (
+                          <button onClick={() => setQuickReserveDate(selectedDay.date)}
+                            className="flex items-center gap-1 text-xs text-purple-500 hover:underline">
+                            <Plus className="w-3.5 h-3.5" />افزودن مراسم
+                          </button>
+                        )}
                       </div>
                       {selectedDay.events.map(e => (
                         <div key={e.id} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700 space-y-2">
