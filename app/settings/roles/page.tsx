@@ -328,10 +328,16 @@ function RolesTab({ roles, onRefresh, isAdmin = false }: RolesTabProps) {
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => setDeleteRole(role)}
-                      disabled={role.isSystem}
+                      onClick={() => {
+                        if (role.isSystem && !isAdmin) {
+                          check(['role.manage_system'], 'حذف نقش‌های سیستمی فقط توسط مدیران سیستم مجاز است.');
+                          return;
+                        }
+                        setDeleteRole(role);
+                      }}
+                      disabled={role.isSystem && role.userCount > 0}
                       className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                      title={role.isSystem ? 'نقش سیستمی قابل حذف نیست' : 'حذف'}
+                      title={role.isSystem && role.userCount > 0 ? `${role.userCount} کاربر دارد — قابل حذف نیست` : 'حذف'}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

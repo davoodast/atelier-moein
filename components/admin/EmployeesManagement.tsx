@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, CheckSquare, Square, X, ChevronDown, RefreshCw, Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { canManageSystemRoles } from '@/lib/clientPermissions';
+import { canManageSystemRoles, hasAnyPermission } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { toJalaali } from 'jalaali-js';
@@ -249,7 +249,13 @@ function RecurringTaskPanel({ employee }: { employee: Employee }) {
 
 export default function EmployeesManagement() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(user?.permissions);
+  const perms = user?.permissions ?? [];
+  const isAdmin = user?.role === 'admin' || user?.isSystem === true || canManageSystemRoles(perms);
+
+  // Fine-grained permission flags
+  const canCreate = hasAnyPermission(perms, ['employees.create']);
+  const canEdit   = hasAnyPermission(perms, ['employees.edit']);
+  const canDelete = hasAnyPermission(perms, ['employees.delete']);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -298,12 +304,14 @@ export default function EmployeesManagement() {
   });
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) { toast.error('مجوز حذف کارمند را ندارید'); return; }
     if (!confirm('آیا مطمئن هستید؟')) return;
     try { await apiClient.delete(`/employees/${id}`); fetchEmployees(); toast.success('کارمند حذف شد'); }
     catch { toast.error('خطا در حذف کارمند'); }
   };
 
   const handleEdit = (emp: Employee) => {
+    if (!canEdit) { toast.error('مجوز ویرایش کارمند را ندارید'); return; }
     setFormData({
       username: emp.username, email: emp.email ?? '', phone: emp.phone ?? '',
       position: emp.position ?? '', salary: emp.salary ?? 0, status: emp.status,
@@ -327,12 +335,14 @@ export default function EmployeesManagement() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center gap-2 flex-wrap">
         <h2 className="text-lg sm:text-2xl font-bold dark:text-white">مدیریت کارمندان</h2>
-        <button onClick={() => { setShowForm(!showForm); if (showForm) { setEditingId(null); resetForm(); } }}
-          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">افزودن کارمند جدید</span>
-          <span className="sm:hidden">کارمند جدید</span>
-        </button>
+        {canCreate && (
+          <button onClick={() => { setShowForm(!showForm); if (showForm) { setEditingId(null); resetForm(); } }}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">افزودن کارمند جدید</span>
+            <span className="sm:hidden">کارمند جدید</span>
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -444,8 +454,9 @@ export default function EmployeesManagement() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5">
-                      <button onClick={() => handleEdit(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {canEdit && <button onClick={() => handleEdit(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-3.5 h-3.5" /></button>}
+                      {canDelete && <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>}
+                      {!canEdit && !canDelete && <span className="flex items-center gap-1 text-xs text-gray-300"><Lock className="w-3 h-3" />فقط مشاهده</span>}
                     </div>
                   </td>
                 </tr>
@@ -491,8 +502,9 @@ export default function EmployeesManagement() {
                 )}
               </div>
               <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => handleEdit(emp)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(emp.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                {canEdit && <button onClick={() => handleEdit(emp)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>}
+                {canDelete && <button onClick={() => handleDelete(emp.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
+                {!canEdit && !canDelete && <Lock className="w-4 h-4 text-gray-300 mt-2" />}
               </div>
             </div>
           </div>

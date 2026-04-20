@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Users, FileText, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Users, FileText, ChevronDown, Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { hasAnyPermission } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
 import JalaliDatePicker from '@/components/ui/JalaliDatePicker';
 import TaskAssignment from './TaskAssignment';
@@ -33,6 +34,14 @@ const LABEL = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5
 
 export default function CeremoniesManagement() {
   const { user } = useAuth();
+  const perms = user?.permissions ?? [];
+
+  // Fine-grained permission flags
+  const canCreate  = hasAnyPermission(perms, ['ceremonies.create']);
+  const canEdit    = hasAnyPermission(perms, ['ceremonies.edit']);
+  const canDelete  = hasAnyPermission(perms, ['ceremonies.delete']);
+  const canAssign  = hasAnyPermission(perms, ['ceremonies.assignments.manage']);
+
   const [ceremonies, setCeremonies] = useState<Ceremony[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +66,7 @@ export default function CeremoniesManagement() {
   };
 
   const openNew = () => {
+    if (!canCreate) { toast.error('مجوز ایجاد مراسم را ندارید'); return; }
     setFormData({ ...EMPTY_FORM });
     setEditingId(null);
     setFormMode('quick');
@@ -64,6 +74,7 @@ export default function CeremoniesManagement() {
   };
 
   const handleEdit = (c: Ceremony) => {
+    if (!canEdit) { toast.error('مجوز ویرایش مراسم را ندارید'); return; }
     setFormData({
       type: c.type ?? 'عروسی', groom_name: c.groom_name ?? '', bride_name: c.bride_name ?? '',
       date_jalali: c.date_jalali ?? '', time: c.time ?? '', address: c.address ?? '',
@@ -96,6 +107,7 @@ export default function CeremoniesManagement() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) { toast.error('مجوز حذف مراسم را ندارید'); return; }
     if (!confirm('آیا مطمئن هستید؟')) return;
     try {
       await apiClient.delete(`/ceremonies/${id}`);
@@ -121,11 +133,13 @@ export default function CeremoniesManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg sm:text-xl font-bold dark:text-white">مدیریت مراسمات</h2>
-        <button onClick={openNew} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium shadow-sm">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">رزرو جدید</span>
-          <span className="sm:hidden">رزرو</span>
-        </button>
+        {canCreate && (
+          <button onClick={openNew} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium shadow-sm">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">رزرو جدید</span>
+            <span className="sm:hidden">رزرو</span>
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -253,12 +267,21 @@ export default function CeremoniesManagement() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5">
-                      <button onClick={() => setTaskCeremony({ id: c.id, label: `${c.groom_name ?? ''} و ${c.bride_name ?? ''}` })}
-                        className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg" title="تخصیص کارمند">
-                        <Users className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleEdit(c)} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      {canAssign && (
+                        <button onClick={() => setTaskCeremony({ id: c.id, label: `${c.groom_name ?? ''} و ${c.bride_name ?? ''}` })}
+                          className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg" title="تخصیص کارمند">
+                          <Users className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button onClick={() => handleEdit(c)} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg" title="ویرایش"><Edit className="w-4 h-4" /></button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                      {!canAssign && !canEdit && !canDelete && (
+                        <span className="flex items-center gap-1 text-xs text-gray-400"><Lock className="w-3 h-3" />فقط مشاهده</span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -286,9 +309,18 @@ export default function CeremoniesManagement() {
                 </div>
               </div>
               <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => setTaskCeremony({ id: c.id, label: `${c.groom_name ?? ''} و ${c.bride_name ?? ''}` })} className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg"><Users className="w-4 h-4" /></button>
-                <button onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(c.id)} className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                {canAssign && (
+                  <button onClick={() => setTaskCeremony({ id: c.id, label: `${c.groom_name ?? ''} و ${c.bride_name ?? ''}` })} className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg"><Users className="w-4 h-4" /></button>
+                )}
+                {canEdit && (
+                  <button onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
+                )}
+                {canDelete && (
+                  <button onClick={() => handleDelete(c.id)} className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                )}
+                {!canAssign && !canEdit && !canDelete && (
+                  <span className="p-2 text-gray-300"><Lock className="w-4 h-4" /></span>
+                )}
               </div>
             </div>
           </div>

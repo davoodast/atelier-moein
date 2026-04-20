@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Lock } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { hasAnyPermission } from '@/lib/clientPermissions';
 import apiClient from '@/lib/apiClient';
+import { toast } from 'sonner';
 import { formatAmountFa } from '@/utils/numberToWords';
 
 interface Plan {
@@ -15,6 +18,12 @@ const LABEL = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5
 const EMPTY = { name: '', description: '', price: 0, features: [''] as string[], is_active: true };
 
 export default function PlansManagement() {
+  const { user } = useAuth();
+  const perms = user?.permissions ?? [];
+  const canCreate = hasAnyPermission(perms, ['plans.create']);
+  const canEdit   = hasAnyPermission(perms, ['plans.edit']);
+  const canDelete = hasAnyPermission(perms, ['plans.delete']);
+
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -29,9 +38,13 @@ export default function PlansManagement() {
     catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const openNew = () => { setForm({ ...EMPTY, features: [''] }); setEditingId(null); setShowForm(true); };
+  const openNew = () => {
+    if (!canCreate) { toast.error('مجوز ایجاد پلن را ندارید'); return; }
+    setForm({ ...EMPTY, features: [''] }); setEditingId(null); setShowForm(true);
+  };
 
   const handleEdit = (p: Plan) => {
+    if (!canEdit) { toast.error('مجوز ویرایش پلن را ندارید'); return; }
     let feats: string[] = [''];
     try { feats = JSON.parse(p.features); if (!feats.length) feats = ['']; } catch { feats = ['']; }
     setForm({ name: p.name, description: p.description ?? '', price: p.price ?? 0, features: feats, is_active: !!p.is_active });
@@ -50,6 +63,7 @@ export default function PlansManagement() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) { toast.error('مجوز حذف پلن را ندارید'); return; }
     if (!confirm('حذف شود؟')) return;
     try { await apiClient.delete(`/plans/${id}`); fetchPlans(); } catch (e) { console.error(e); }
   };
@@ -62,9 +76,11 @@ export default function PlansManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg sm:text-xl font-bold dark:text-white">مدیریت پلن‌ها</h2>
-        <button onClick={openNew} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium shadow-sm">
-          <Plus className="w-4 h-4" />پلن جدید
-        </button>
+        {canCreate && (
+          <button onClick={openNew} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs sm:text-sm font-medium shadow-sm">
+            <Plus className="w-4 h-4" />پلن جدید
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -133,8 +149,9 @@ export default function PlansManagement() {
                   <p className="text-purple-600 dark:text-purple-400 font-medium text-sm mt-0.5">{formatAmountFa(p.price ?? 0)} تومان</p>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => handleEdit(p)} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                  {canEdit && <button onClick={() => handleEdit(p)} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>}
+                  {canDelete && <button onClick={() => handleDelete(p.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
+                  {!canEdit && !canDelete && <Lock className="w-3.5 h-3.5 text-gray-300 mt-1" />}
                 </div>
               </div>
               {p.description && <p className="text-sm text-gray-500 dark:text-gray-400">{p.description}</p>}
