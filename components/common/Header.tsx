@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Sun, Moon, LogOut, Home } from 'lucide-react';
+import { Sun, Moon, LogOut, Home, User } from 'lucide-react';
 
 export default function Header() {
   const { isDark, toggleTheme } = useTheme();
@@ -46,6 +46,15 @@ export default function Header() {
           >
             <Home className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
+          {user && (
+            <button
+              onClick={() => router.push('/profile')}
+              title="پروفایل شخصی"
+              className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition"
+            >
+              <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            </button>
+          )}
           <button
             onClick={toggleTheme}
             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings, Lock, ShieldX } from 'lucide-react';
+import { BarChart3, Calendar, CreditCard, TrendingUp, LayoutDashboard, Users, CalendarDays, Package, Plus, X, AlertCircle, Settings, Lock, ShieldX, Menu, User, MessageSquare, ClipboardList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { hasAnyPermission } from '@/lib/clientPermissions';
@@ -173,6 +173,7 @@ export default function AdminDashboardPage() {
   };
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'ceremonies' | 'employees' | 'calendar' | 'plans'>('ceremonies');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Auto-switch to first permitted tab when permissions load
   useEffect(() => {
@@ -250,37 +251,120 @@ export default function AdminDashboardPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-1 sm:px-8 flex gap-0 overflow-x-auto scrollbar-hide">
-          {TABS.map(t => {
-            const TabIcon = t.icon;
-            const accessible = canAccess(t.k);
-            return (
-              <button key={t.k} onClick={() => handleTabClick(t.k)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
-                  activeTab === t.k
-                    ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-                    : accessible
-                    ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
-                }`}>
-                <TabIcon className="w-4 h-4" />
-                <span>{t.l}</span>
-                {!accessible && <Lock className="w-3 h-3 opacity-60" />}
-              </button>
-            );
-          })}
-          {/* Settings link — only show if user has settings.view permission */}
-          {canViewSettings && (
-            <button
-              onClick={() => router.push('/settings/roles')}
-              className="mr-auto flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              <Settings className="w-4 h-4" />
-              <span>تنظیمات</span>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+
+        {/* ══ SIDEBAR (lg+ screens — RTL = appears on right) ══ */}
+        <aside className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto transition-all duration-300 ${sidebarOpen ? 'w-56' : 'w-16'}`}>
+          {/* Toggle header */}
+          <div className={`flex items-center border-b border-gray-100 dark:border-gray-700 p-3 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
+            {sidebarOpen && <span className="text-sm font-bold text-gray-800 dark:text-white truncate">آتلیه معین</span>}
+            <button onClick={() => setSidebarOpen(o => !o)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex-shrink-0" title="منو">
+              <Menu className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </button>
+          </div>
+
+          {/* Nav items */}
+          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+            {TABS.map(t => {
+              const TabIcon = t.icon;
+              const accessible = canAccess(t.k);
+              const active = activeTab === t.k;
+              return (
+                <button key={t.k} onClick={() => handleTabClick(t.k)}
+                  title={sidebarOpen ? undefined : t.l}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    active ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
+                    : accessible ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                    : 'text-gray-300 dark:text-gray-600'
+                  } ${sidebarOpen ? '' : 'justify-center'}`}>
+                  <TabIcon className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span className="flex-1 truncate text-right">{t.l}</span>}
+                  {sidebarOpen && !accessible && <Lock className="w-3.5 h-3.5 opacity-60 mr-auto" />}
+                </button>
+              );
+            })}
+
+            <div className="my-2 border-t border-gray-100 dark:border-gray-700" />
+
+            {/* Personal profile */}
+            <button onClick={() => router.push('/profile')} title={sidebarOpen ? undefined : 'پروفایل شخصی'}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400 transition-all ${sidebarOpen ? '' : 'justify-center'}`}>
+              <User className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="flex-1 truncate text-right">پروفایل شخصی</span>}
+            </button>
+
+            {/* Inbox */}
+            <button onClick={() => toast.info('صندوق پیام به زودی اضافه می‌شود')} title={sidebarOpen ? undefined : 'صندوق پیام'}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-700 dark:hover:text-green-400 transition-all ${sidebarOpen ? '' : 'justify-center'}`}>
+              <MessageSquare className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="flex-1 truncate text-right">صندوق پیام</span>}
+            </button>
+
+            {/* My tasks */}
+            <button onClick={() => router.push('/profile')} title={sidebarOpen ? undefined : 'وظایف من'}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-700 dark:hover:text-orange-400 transition-all ${sidebarOpen ? '' : 'justify-center'}`}>
+              <ClipboardList className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="flex-1 truncate text-right">وظایف من</span>}
+            </button>
+
+            {canViewSettings && (
+              <>
+                <div className="my-2 border-t border-gray-100 dark:border-gray-700" />
+                <button onClick={() => router.push('/settings/roles')} title={sidebarOpen ? undefined : 'تنظیمات'}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-all ${sidebarOpen ? '' : 'justify-center'}`}>
+                  <Settings className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span className="flex-1 truncate text-right">تنظیمات</span>}
+                </button>
+              </>
+            )}
+          </nav>
+
+          {/* User info */}
+          {sidebarOpen && (
+            <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                  <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">{user?.username}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{user?.role}</p>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </aside>
+
+        {/* ══ MAIN CONTENT ══ */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Mobile/tablet top tabs (hidden on lg+) */}
+          <div className="lg:hidden sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-1 flex gap-0 overflow-x-auto scrollbar-hide">
+            {TABS.map(t => {
+              const TabIcon = t.icon;
+              const accessible = canAccess(t.k);
+              return (
+                <button key={t.k} onClick={() => handleTabClick(t.k)}
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                    activeTab === t.k
+                      ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                      : accessible
+                      ? 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      : 'border-transparent text-gray-300 dark:text-gray-600 cursor-pointer'
+                  }`}>
+                  <TabIcon className="w-4 h-4" />
+                  <span>{t.l}</span>
+                  {!accessible && <Lock className="w-3 h-3 opacity-60" />}
+                </button>
+              );
+            })}
+            {canViewSettings && (
+              <button onClick={() => router.push('/settings/roles')}
+                className="mr-auto flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors whitespace-nowrap flex-shrink-0">
+                <Settings className="w-4 h-4" />
+                <span>تنظیمات</span>
+              </button>
+            )}
+          </div>
 
         <div className="p-3 sm:p-6 lg:p-8">
           {activeTab === 'dashboard' && (
@@ -288,7 +372,39 @@ export default function AdminDashboardPage() {
             <div className="space-y-5 sm:space-y-8">
               <div><h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">داشبورد مدیریت</h1></div>
 
-              {/* Today's ceremony widget */}
+              {/* Quick-access cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button onClick={() => router.push('/profile')}
+                  className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
+                    <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">داشبورد شخصی</span>
+                </button>
+                <button onClick={() => toast.info('صندوق پیام به زودی اضافه می‌شود')}
+                  className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:shadow-md transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/40 transition-colors">
+                    <MessageSquare className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">صندوق پیام</span>
+                </button>
+                <button onClick={() => router.push('/profile')}
+                  className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 hover:shadow-md transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center group-hover:bg-orange-100 dark:group-hover:bg-orange-900/40 transition-colors">
+                    <ClipboardList className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">وظایف من</span>
+                </button>
+                <button onClick={() => handleTabClick('calendar')}
+                  className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
+                    <CalendarDays className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">تقویم</span>
+                </button>
+              </div>
+
+              {/* Today's ceremony widget */}}
               {todayCeremonies.length > 0 && (
                 <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
                   <div className="flex items-center gap-2 mb-3">
@@ -458,6 +574,7 @@ export default function AdminDashboardPage() {
             </div>
             ) : <PermDeniedTab />
           )}
+        </div>
         </div>
       </div>
 
