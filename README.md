@@ -314,15 +314,51 @@ npx prisma studio
 **کارهایی که انجام می‌دهد:**
 1. بیلد پروداکشن می‌گیرد
 2. standalone + static + public + دیتابیس را در پوشه `deploy/` کپی می‌کند
-3. یک `Start.bat` داخل deploy می‌سازد
+3. ماژول `next` را داخل deploy کپی می‌کند (برای سرورهایی که Next.js نصب ندارند)
+4. فایل `Start.bat` و `Kill Server.bat` داخل deploy می‌سازد
+
+**محتوای پوشه `deploy/`:**
+
+```
+deploy/
+├── .next/           (فایل‌های استاتیک و باندل‌های سرور)
+├── node_modules/    (شامل ماژول next — برای سرورهای بدون Next.js)
+├── prisma/
+│   └── dev.db       (دیتابیس SQLite)
+├── public/
+├── logs/
+├── .env
+├── Kill Server.bat  (متوقف‌کردن سرور)
+├── package.json
+├── server.js
+└── Start.bat        (راه‌اندازی سرور)
+```
 
 **نحوه استفاده:**
 1. دابل‌کلیک `Build Deploy.bat`
-2. پوشه `deploy/` ساخته می‌شود (~80 MB)
+2. پوشه `deploy/` ساخته می‌شود
 3. این پوشه را به هر ویندوزی که **Node.js** دارد کپی کن
-4. دابل‌کلیک `Start.bat` داخل پوشه deploy
+4. دابل‌کلیک `Start.bat` داخل پوشه deploy → سایت روی پورت 3000
+
+> **نکته مهم درباره دیتابیس:** `Start.bat` از متغیر `%~dp0` برای تعیین مسیر دقیق دیتابیس استفاده می‌کند تا مستقل از محل پوشه deploy روی هر سیستمی کار کند.
+
+### 🔴 `Kill Server.bat` — توقف سرور
+
+فایل `Kill Server.bat` در پوشه deploy قرار دارد و سرور روی پورت 3000 را متوقف می‌کند.
 
 > **جایگزین:** `node scripts/build-deploy.js` همین کار را انجام می‌دهد.
+
+---
+
+## 🔧 تغییرات و رفع باگ — نسخه ۱۴۰۵/۰۲/۰۱
+
+### بهبود Deploy و راه‌اندازی روی سرور جدید
+- **`Build Deploy.bat`**: ماژول `node_modules/next` به پکیج deploy اضافه شد — دیگر نیازی به نصب Next.js روی سرور مقصد نیست
+- **`Build Deploy.bat`**: فایل `Kill Server.bat` به‌صورت خودکار داخل پوشه deploy ساخته می‌شود
+- **`deploy/Start.bat`**: متغیر `DATABASE_URL` از مسیر نسبی (`file:./prisma/dev.db`) به مسیر مطلق با `%~dp0` تغییر یافت — رفع خطای `Error code 14: Unable to open the database file` در Next.js standalone mode
+
+### ریشه مشکل و راه‌حل
+در Next.js standalone mode، Prisma در worker thread اجرا می‌شود و CWD ممکن است متفاوت باشد؛ به همین دلیل مسیر نسبی `file:./prisma/dev.db` کار نمی‌کند. استفاده از `%~dp0` در bat file مسیر مطلق را به‌درستی تنظیم می‌کند.
 
 ---
 

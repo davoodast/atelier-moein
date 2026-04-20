@@ -19,6 +19,7 @@ export async function GET(request: Request) {
           groom_name: true,
           bride_name: true,
           date_jalali: true,
+          time: true,
         },
       },
       assignment: {

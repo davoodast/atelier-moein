@@ -47,7 +47,7 @@ const CreateRoleSchema = z.object({
 
 export async function POST(request: Request) {
   const authUser = await getAuthUser(request);
-  if (!await hasPermission(authUser, 'settings.edit')) {
+  if (!authUser || !await hasPermission(authUser, 'settings.edit')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

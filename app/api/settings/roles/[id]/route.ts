@@ -15,7 +15,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authUser = await getAuthUser(request);
-  if (!await hasPermission(authUser, 'settings.edit')) {
+  if (!authUser || !await hasPermission(authUser, 'settings.edit')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -61,7 +61,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authUser = await getAuthUser(request);
-  if (!await hasPermission(authUser, 'settings.edit')) {
+  if (!authUser || !await hasPermission(authUser, 'settings.edit')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
